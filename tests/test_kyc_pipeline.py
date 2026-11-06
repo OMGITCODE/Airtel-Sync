@@ -57,7 +57,8 @@ def test_document_classifier_and_mask_helpers_are_explicit():
     [
         ('K03_gst_certificate.png', 'gst_certificate'),
         ('K02_gst_certificate.png', 'gst_certificate'),
-        ('K04_gst_certificate.png', 'gst_certificate'),
+        # The blur gate deliberately stops classification and field extraction.
+        ('K04_gst_certificate.png', None),
         ('K07_gst_certificate.png', 'gst_certificate'),
         ('K08_gst_certificate.png', 'gst_certificate'),
         ('K01_gst_certificate.png', 'gst_certificate'),
@@ -69,6 +70,7 @@ def test_supplied_kyc_specimens_are_classified_and_review_flags_are_preserved(fi
     result = analyse((DOCUMENTS / filename).read_bytes(), GST)
     assert result['doc_type'] == expected_type
     if filename == 'K04_gst_certificate.png':
+        assert result['doc_type'] is None
         assert result['gstin_candidates'] == []
         assert any('BLURRY' in flag for flag in result['flags'])
     elif filename == 'K02_gst_certificate.png':

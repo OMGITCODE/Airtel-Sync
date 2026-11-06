@@ -6,3 +6,5 @@ Pillow>=10,<13
 pytesseract>=0.3.10,<1
 pytest>=8,<10
 httpx>=0.27,<1
+openai>=2,<3
+python-dotenv>=1,<2

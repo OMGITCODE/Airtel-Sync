@@ -1,0 +1,26 @@
+product_id,category,product_name,description,unit,price_min_inr_per_month,price_max_inr_per_month,one_time_setup_inr,min_contract_months,available_city_tiers,min_employees,min_sites,requires_gstin,requires_one_of,typical_install_days,target_segments
+P01,Connectivity,Biz Fibre 100,"Business fibre broadband, 100 Mbps, unlimited data",per site,999,1199,0,12,1;2,1,1,N,,5,micro;prof
+P02,Connectivity,Biz Fibre 300,"Business fibre broadband, 300 Mbps, unlimited data, static IP optional",per site,1499,1799,0,12,1;2,1,1,N,,5,prof;multi
+P03,Connectivity,Biz Fibre 1G,"Business fibre broadband, 1 Gbps, priority support",per site,3999,4499,0,12,1,5,1,Y,,7,prof;multi;mfg
+P04,Connectivity,Biz 5G AirFiber 100,"Wireless (5G FWA) broadband, 100 Mbps, plug-and-play, for sites without fibre",per site,899,1099,0,6,1;2,1,1,N,,2,micro;prof
+P05,Connectivity,Internet Leased Line 20,"Dedicated 1:1 internet, 20 Mbps, 99.5% SLA",per site,8000,12000,10000,12,1;2,10,1,Y,,21,mfg;multi
+P06,Connectivity,Internet Leased Line 100,"Dedicated 1:1 internet, 100 Mbps, 99.9% SLA",per site,25000,35000,15000,24,1;2,25,1,Y,,30,mfg
+P07,Connectivity,Business Postpaid 299,"Business mobile line, 50 GB data, unlimited calls",per line,299,399,0,1,1;2,1,1,N,,1,micro;prof;multi;mfg
+P08,Connectivity,Business Postpaid 599,"Business mobile line, 150 GB data, roaming, priority care",per line,599,799,0,1,1;2,1,1,N,,1,prof;multi;mfg
+P09,Connectivity,Backup 4G/5G Failover,Automatic failover router with data SIM for when the main link is down,per site,499,599,1500,12,1;2,1,1,N,P01|P02|P03|P05|P06,3,multi;prof
+P10,Connectivity,Managed SD-WAN,"Central management of links across sites, app-priority routing",per site,2500,3500,5000,24,1;2,10,3,Y,P01|P02|P03|P05|P06,14,multi
+P11,Connectivity,Static IP,"Fixed public IP for CCTV, servers or remote access",per IP,200,300,0,12,1;2,1,1,N,P01|P02|P03,1,prof;mfg
+P12,Communication,Cloud Telephony / SIP,"Business phone lines over internet with IVR, call recording",per channel,1000,1500,2000,12,1;2,3,1,Y,P01|P02|P03|P04|P05|P06,5,prof;multi
+P13,Communication,Toll-free Number,1800 number routed to mobile or cloud telephony,per number,1500,2000,1000,12,1;2,1,1,Y,,3,multi;prof
+P14,Communication,Business SMS 10k,"10,000 SMS per month for alerts and promotions, DLT registration assisted",per pack,1500,2000,0,1,1;2,1,1,Y,,4,prof;multi;micro
+P15,Communication,WhatsApp Business API Starter,"Verified WhatsApp channel, catalogue, 1,000 conversations a month",per account,999,1499,0,3,1;2,1,1,Y,,3,micro;prof;multi
+P16,Cloud & Productivity,Cloud Email & Office Suite,"Business email on own domain, documents, video meetings",per user,125,150,0,12,1;2,1,1,N,,1,prof;multi;mfg
+P17,Cloud & Productivity,Cloud Backup 1 TB,"Automatic backup of PCs and phones, 1 TB",per account,499,699,0,12,1;2,1,1,N,,1,prof;mfg
+P18,Cloud & Productivity,Website + Domain Starter,"Domain, 5-page website builder, hosting, SSL",per account,299,499,0,12,1;2,1,1,N,,2,micro;prof
+P19,Cloud & Productivity,Cloud POS & Billing,"GST-ready billing, inventory, UPI/card acceptance on a tablet",per counter,599,899,2500,12,1;2,1,1,N,,3,micro;multi
+P20,Security,Endpoint Security,Antivirus and ransomware protection for PCs and phones,per device,99,149,0,12,1;2,1,1,N,,1,prof;mfg;multi
+P21,Security,Managed Firewall,"Next-gen firewall at the site, managed by Accel SOC",per site,1999,2999,4000,24,1;2,10,1,Y,P01|P02|P03|P05|P06,10,mfg;multi;prof
+P22,Security,Secure Wi-Fi with Guest Network,Managed Wi-Fi access point with separate customer Wi-Fi and content filtering,per site,399,599,1000,12,1;2,1,1,N,P01|P02|P03|P04,3,micro;multi;prof
+P23,IoT & Physical,Cloud CCTV,HD camera with 30-day cloud recording and mobile app view,per camera,199,299,1800,12,1;2,1,1,N,P01|P02|P03|P04|P05|P06,4,micro;multi;mfg
+P24,IoT & Physical,Machine Monitoring IoT,IoT SIM + sensor kit for machine uptime and energy use,per device,149,249,3000,24,1;2,10,1,Y,,10,mfg
+P25,IoT & Physical,Fleet Tracker,GPS tracker with IoT SIM and live dashboard,per vehicle,199,299,1500,12,1;2,1,1,N,,3,multi;mfg

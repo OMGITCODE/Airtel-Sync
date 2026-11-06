@@ -1,0 +1,22 @@
+name: Prototype checks
+on:
+  push:
+  pull_request:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install OCR engine
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Verify Python and JS syntax
+        run: |
+          python -m compileall -q app
+          node --check app/static/app.js
+      - name: Test policies and end-to-end mock checkout
+        run: pytest -q

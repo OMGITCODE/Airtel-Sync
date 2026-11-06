@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw, ImageFont
 import pytesseract
-from .genai import api_key_configured, configured_model, create_client, reasoning_effort, run_agent
+from .genai import configured_model, create_client, local_runtime_status, reasoning_effort, run_agent
 
 try:
  from dotenv import load_dotenv
@@ -137,7 +137,9 @@ class HandoffInput(BaseModel):
 @app.get('/')
 def index():return FileResponse(ROOT/'static'/'index.html')
 @app.get('/api/health')
-def health():return {'ok':True,'products':len(CAT),'leads':len(LEADS),'mock_gstin':len(GST),'mock_udyam':len(UDYAM),'advisor':{'provider':'OpenAI Responses API','status':'live' if api_key_configured() else 'needs_api_key','model':configured_model(),'reasoning_effort':reasoning_effort()}}
+def health():
+ local=local_runtime_status()
+ return {'ok':True,'products':len(CAT),'leads':len(LEADS),'mock_gstin':len(GST),'mock_udyam':len(UDYAM),'advisor':{'provider':'Ollama local','status':local['status'],'model':configured_model(),'reasoning_effort':reasoning_effort()}}
 @app.get('/api/catalogue')
 def catalogue():return list(CAT.values())
 @app.get('/api/demo')
@@ -304,12 +306,19 @@ async def advisor(jid:str,b:TextInput):
  x=getjourney(jid)
  if x['stage']=='ORDER_SUBMITTED':
   raise HTTPException(409,'This journey has a submitted order. Start a new journey for a separate advisor session.')
+ local=local_runtime_status()
+ if local['status']=='model_missing':
+  raise HTTPException(503,f"Local model '{configured_model()}' is not installed. Run 'ollama pull {configured_model()}' and try again.")
+ if local['status']=='runtime_unavailable':
+  raise HTTPException(503,'Ollama is not reachable on this device. Start the Ollama app and try again.')
+ if local['status']=='cloud_model_blocked':
+  raise HTTPException(400,'Cloud Ollama models are disabled. Set OLLAMA_MODEL to a locally installed model such as qwen3:8b.')
+ if local['status']!='ready':
+  raise HTTPException(503,'OLLAMA_BASE_URL must point to localhost or the local Docker host.')
  try:client=create_client()
  except Exception as exc:
   logging.exception('OneJourney GenAI client could not be initialized')
-  raise HTTPException(503,'The GenAI advisor dependencies are unavailable. Install the project requirements and restart the app.') from exc
- if client is None:
-  raise HTTPException(503,'Live OneJourney GenAI is not configured. Set OPENAI_API_KEY on the server and restart the app.')
+  raise HTTPException(503,'The local GenAI advisor dependencies are unavailable. Install the project requirements and restart the app.') from exc
  cleaned=redact_chat(b.text)
  with con() as db:
   history=[dict(r) for r in db.execute('SELECT role,content FROM advisor_messages WHERE journey_id=? ORDER BY id DESC LIMIT 10',(jid,)).fetchall()][::-1]
@@ -335,14 +344,16 @@ async def advisor(jid:str,b:TextInput):
  try:
   result=await run_agent(client=client,profile=profile,language=x['language'],history=history,user_text=cleaned,tool_executor=execute_tool)
  except Exception as exc:
-  logging.exception('OneJourney Responses API request failed')
-  raise HTTPException(502,'The GenAI advisor could not complete this turn. Check server configuration and try again.') from exc
+  logging.exception('OneJourney local Ollama request failed')
+  raise HTTPException(502,'The local GenAI advisor could not complete this turn. Check Ollama and try again.') from exc
+ finally:
+  await client.close()
  if profile_proposal:
   profile_proposal['confirmed']=False
   changed=update_profile(jid,ProfileUpdate(profile=profile_proposal))
   profile=changed['profile']
   if changed.get('invalidated'):result['journeyproof_invalidated']=changed['invalidated']
- result['updates']=profile_proposal;result['profile']=safe_profile(profile);result['mode']='live GenAI tool agent';result['disclosure']='GenAI conversation and tools are live. Catalogue pricing, eligibility, saved quotes and orders are controlled by deterministic backend logic.'
+ result['updates']=profile_proposal;result['profile']=safe_profile(profile);result['mode']='local Ollama tool agent';result['disclosure']='Your message was processed by the local Ollama model. Catalogue pricing, eligibility, saved quotes and orders are controlled by deterministic backend logic.'
  with con() as db:
   db.executemany('INSERT INTO advisor_messages(journey_id,role,content,created_at) VALUES(?,?,?,?)',[(jid,'user',cleaned,now()),(jid,'assistant',result['message'][:6000],now())])
   db.execute('DELETE FROM advisor_messages WHERE journey_id=? AND id NOT IN (SELECT id FROM advisor_messages WHERE journey_id=? ORDER BY id DESC LIMIT 24)',(jid,jid))

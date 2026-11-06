@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app import main
-from app.genai import TOOLS, api_key_configured, build_instructions, run_agent
+from app.genai import TOOLS, build_instructions, is_local_model, local_runtime_status, ollama_base_url, run_agent
 
 
 def test_tool_schemas_are_strict_and_privacy_context_is_limited():
@@ -19,21 +19,58 @@ def test_tool_schemas_are_strict_and_privacy_context_is_limited():
     assert 'private email' not in instructions
 
 
-def test_example_placeholder_is_not_treated_as_a_live_api_key(monkeypatch):
-    monkeypatch.setenv('OPENAI_API_KEY', 'replace_with_your_own_key')
-    assert not api_key_configured()
+def test_ollama_url_is_local_only(monkeypatch):
+    monkeypatch.setenv('OLLAMA_BASE_URL', 'http://localhost:11434/v1')
+    assert ollama_base_url() == 'http://localhost:11434'
+    monkeypatch.setenv('OLLAMA_BASE_URL', 'https://example.com/v1')
+    assert ollama_base_url() is None
+    assert not is_local_model('qwen3:8b-cloud')
+    assert is_local_model('qwen3:8b')
+
+
+def test_local_runtime_status_detects_model(monkeypatch):
+    monkeypatch.setenv('OLLAMA_BASE_URL', 'http://127.0.0.1:11434')
+    monkeypatch.setenv('OLLAMA_MODEL', 'qwen3:8b')
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {'models': [{'name': 'qwen3:8b'}]}
+    class Client:
+        def __init__(self, **kwargs):
+            assert kwargs['trust_env'] is False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, *args, **kwargs):
+            return Response()
+
+    monkeypatch.setattr('app.genai.httpx.Client', Client)
+    assert local_runtime_status() == {'status': 'ready', 'model': 'qwen3:8b'}
 
 
 def test_responses_function_call_cycle_returns_evidence():
     call = SimpleNamespace(
-        type='function_call', name='search_catalogue',
-        arguments='{"query":"business fibre","category":"Connectivity","segment":null,"max_results":3}',
-        call_id='call_1',
+        id='call_1',
+        function=SimpleNamespace(
+            name='search_catalogue',
+            arguments='{"query":"business fibre","category":"Connectivity","segment":null,"max_results":3}',
+        ),
     )
-    first = SimpleNamespace(output=[call], output_text='')
-    second = SimpleNamespace(output=[], output_text='The catalogue has three matching options.')
+    first = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=None, tool_calls=[call]))], usage=None
+    )
+    second = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content='The catalogue has three matching options.', tool_calls=None))],
+        usage=SimpleNamespace(prompt_tokens=8, completion_tokens=12),
+    )
 
-    class Responses:
+    class Completions:
         def __init__(self):
             self.calls = []
 
@@ -41,8 +78,8 @@ def test_responses_function_call_cycle_returns_evidence():
             self.calls.append(kwargs)
             return [first, second][len(self.calls) - 1]
 
-    responses = Responses()
-    client = SimpleNamespace(responses=responses)
+    completions = Completions()
+    client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
     def run_immediate(coroutine):
         """Drive this fake client's no-I/O coroutine without opening an event loop."""
         try:
@@ -60,9 +97,10 @@ def test_responses_function_call_cycle_returns_evidence():
     assert result['message'].startswith('The catalogue')
     assert result['tool_trace'][0]['tool'] == 'search_catalogue'
     assert result['artifacts'][0]['data']['products'][0]['product_id'] == 'P01'
-    assert any(item.get('type') == 'function_call_output' for item in responses.calls[1]['input'] if isinstance(item, dict))
-    assert responses.calls[0]['store'] is False
-    assert responses.calls[0]['tool_choice'] == 'auto'
+    assert any(item.get('role') == 'tool' for item in completions.calls[1]['messages'] if isinstance(item, dict))
+    assert completions.calls[0]['tool_choice'] == 'auto'
+    assert completions.calls[0]['tools'][0]['function']['name'] == 'propose_profile_update'
+    assert result['usage'] == {'input_tokens': 8, 'output_tokens': 12}
 
 
 def test_chat_redacts_direct_identifiers_and_profile_proposal_is_constrained():
@@ -101,11 +139,11 @@ def test_local_genai_tools_use_catalogue_and_aggregate_only():
     assert 'synthetic' in report['source']
 
 
-def test_advisor_clearly_requires_live_key(monkeypatch):
-    monkeypatch.setattr(main, 'create_client', lambda: None)
+def test_advisor_explains_when_local_ollama_is_unavailable(monkeypatch):
+    monkeypatch.setattr(main, 'local_runtime_status', lambda: {'status': 'runtime_unavailable', 'model': 'qwen3:8b'})
     journey_id = main.newjourney(main.CreateJourney(language='en'))['id']
     coroutine = main.advisor(journey_id, main.TextInput(text='I run a clinic'))
     with pytest.raises(HTTPException) as caught:
         coroutine.send(None)
     assert caught.value.status_code == 503
-    assert 'OPENAI_API_KEY' in caught.value.detail
+    assert 'Start the Ollama app' in caught.value.detail

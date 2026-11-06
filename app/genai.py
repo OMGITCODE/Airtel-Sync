@@ -1,11 +1,15 @@
-"""OpenAI Responses API orchestration for the OneJourney advisor."""
+"""Local Ollama tool-agent orchestration for the OneJourney advisor."""
 from __future__ import annotations
 
 import json
 import os
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
-MODEL_DEFAULT = "gpt-6.1-sol"
+import httpx
+
+MODEL_DEFAULT = "qwen3:8b"
+OLLAMA_URL_DEFAULT = "http://127.0.0.1:11434"
 ALLOWED_NEEDS = ["internet", "backup", "email", "security", "calling", "mobile", "website", "cctv"]
 
 TOOLS: list[dict[str, Any]] = [
@@ -100,28 +104,81 @@ TOOLS: list[dict[str, Any]] = [
     },
 ]
 
+CHAT_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": tool["name"],
+            "description": tool["description"],
+            "parameters": tool["parameters"],
+        },
+    }
+    for tool in TOOLS
+]
 
-def api_key_configured() -> bool:
-    value = os.getenv("OPENAI_API_KEY", "").strip()
-    return bool(value and not value.casefold().startswith("replace_with_"))
+
+def ollama_base_url() -> str | None:
+    """Return a local-only Ollama origin; never send chat to a remote endpoint."""
+    value = os.getenv("OLLAMA_BASE_URL", OLLAMA_URL_DEFAULT).strip().rstrip("/")
+    if value.endswith("/v1"):
+        value = value[:-3]
+    parsed = urlsplit(value)
+    local_hosts = {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
+    if parsed.scheme != "http" or parsed.hostname not in local_hosts or parsed.username or parsed.password:
+        return None
+    if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+        return None
+    return value
 
 
 def configured_model() -> str:
-    return os.getenv("OPENAI_MODEL", MODEL_DEFAULT).strip() or MODEL_DEFAULT
+    return os.getenv("OLLAMA_MODEL", MODEL_DEFAULT).strip() or MODEL_DEFAULT
 
 
 def reasoning_effort() -> str:
-    value = os.getenv("OPENAI_REASONING_EFFORT", "medium").strip().lower()
+    value = os.getenv("OLLAMA_REASONING_EFFORT", "medium").strip().lower()
     return value if value in {"low", "medium", "high", "xhigh", "max"} else "medium"
 
 
+def is_local_model(model: str | None = None) -> bool:
+    value = (model or configured_model()).strip().casefold()
+    return bool(value) and not value.endswith(":cloud") and not value.endswith("-cloud")
+
+
+def local_runtime_status() -> dict[str, Any]:
+    """Check that the local Ollama server is reachable and the configured model is installed."""
+    base_url = ollama_base_url()
+    model = configured_model()
+    if base_url is None:
+        return {"status": "invalid_base_url", "model": model}
+    if not is_local_model(model):
+        return {"status": "cloud_model_blocked", "model": model}
+    try:
+        with httpx.Client(timeout=0.8, trust_env=False) as client:
+            response = client.get(f"{base_url}/api/tags")
+        response.raise_for_status()
+        models = response.json().get("models", [])
+    except (httpx.HTTPError, ValueError, AttributeError, TypeError):
+        return {"status": "runtime_unavailable", "model": model}
+    installed = {str(item.get("name") or item.get("model") or "") for item in models if isinstance(item, dict)}
+    has_model = model in installed or (":" not in model and any(name.startswith(model + ":") for name in installed))
+    return {"status": "ready" if has_model else "model_missing", "model": model}
+
+
 def create_client():
-    """Create the async client only when a server-side key is configured."""
-    if not api_key_configured():
-        return None
+    """Create an OpenAI-compatible client that can connect only to local Ollama."""
+    base_url = ollama_base_url()
+    if base_url is None:
+        raise ValueError("OLLAMA_BASE_URL must resolve to localhost or the local Docker host.")
     from openai import AsyncOpenAI
 
-    return AsyncOpenAI(timeout=30.0, max_retries=1)
+    return AsyncOpenAI(
+        base_url=f"{base_url}/v1",
+        api_key="ollama",
+        timeout=120.0,
+        max_retries=0,
+        http_client=httpx.AsyncClient(timeout=120.0, trust_env=False),
+    )
 
 
 def build_instructions(profile: dict[str, Any], language: str) -> str:
@@ -159,52 +216,72 @@ async def run_agent(
     user_text: str,
     tool_executor: Callable[[str, dict[str, Any]], dict[str, Any]],
 ) -> dict[str, Any]:
-    """Run a bounded Responses function-calling loop and return visible evidence."""
+    """Run a bounded local chat-completions tool loop and return visible evidence."""
     model = configured_model()
     instructions = build_instructions(profile, language)
-    input_items: list[Any] = [*history, {"role": "user", "content": user_text}]
+    messages: list[Any] = [
+        {"role": "system", "content": instructions},
+        *history,
+        {"role": "user", "content": user_text},
+    ]
     tool_trace: list[dict[str, Any]] = []
     artifacts: list[dict[str, Any]] = []
     response = None
+    assistant = None
 
     for step in range(4):
-        response = await client.responses.create(
+        response = await client.chat.completions.create(
             model=model,
-            reasoning={"effort": reasoning_effort()},
-            instructions=instructions,
-            input=input_items,
-            tools=TOOLS,
+            reasoning_effort=reasoning_effort(),
+            messages=messages,
+            tools=CHAT_TOOLS,
             tool_choice="auto" if step < 3 else "none",
-            parallel_tool_calls=False,
-            max_output_tokens=1100,
-            store=False,
+            max_tokens=1100,
         )
-        calls = [item for item in response.output if getattr(item, "type", None) == "function_call"]
+        assistant = response.choices[0].message
+        calls = getattr(assistant, "tool_calls", None) or []
         if not calls:
             break
 
-        input_items.extend(response.output)
+        messages.append(
+            {
+                "role": "assistant",
+                "content": getattr(assistant, "content", None),
+                "tool_calls": [
+                    {
+                        "id": call.id,
+                        "type": "function",
+                        "function": {
+                            "name": call.function.name,
+                            "arguments": call.function.arguments,
+                        },
+                    }
+                    for call in calls
+                ],
+            }
+        )
         for call in calls:
             try:
-                args = json.loads(call.arguments or "{}")
-                result = tool_executor(call.name, args)
+                name = call.function.name
+                args = json.loads(call.function.arguments or "{}")
+                result = tool_executor(name, args)
                 if not isinstance(result, dict):
                     result = {"result": result}
             except Exception:
                 result = {"error": "Tool request could not be completed. Ask for corrected inputs or use another tool."}
-            summary = str(result.get("summary") or call.name.replace("_", " "))[:180]
-            tool_trace.append({"tool": call.name, "summary": summary})
-            if call.name in {"search_catalogue", "preview_quote", "analyze_funnel", "assess_journey_recovery"}:
-                artifacts.append({"type": call.name, "data": result})
-            input_items.append(
+            summary = str(result.get("summary") or name.replace("_", " "))[:180]
+            tool_trace.append({"tool": name, "summary": summary})
+            if name in {"search_catalogue", "preview_quote", "analyze_funnel", "assess_journey_recovery"}:
+                artifacts.append({"type": name, "data": result})
+            messages.append(
                 {
-                    "type": "function_call_output",
-                    "call_id": call.call_id,
-                    "output": json.dumps(result, ensure_ascii=False),
+                    "role": "tool",
+                    "tool_call_id": call.id,
+                    "content": json.dumps(result, ensure_ascii=False),
                 }
             )
 
-    message = str(getattr(response, "output_text", "") or "").strip() if response else ""
+    message = str(getattr(assistant, "content", "") or "").strip() if assistant else ""
     if not message:
         raise RuntimeError("The advisor returned no final message.")
     usage = getattr(response, "usage", None)
@@ -215,7 +292,7 @@ async def run_agent(
         "tool_trace": tool_trace,
         "artifacts": artifacts,
         "usage": {
-            "input_tokens": getattr(usage, "input_tokens", None),
-            "output_tokens": getattr(usage, "output_tokens", None),
+            "input_tokens": getattr(usage, "prompt_tokens", None),
+            "output_tokens": getattr(usage, "completion_tokens", None),
         },
     }

@@ -286,6 +286,7 @@ h1, h2, h3 { letter-spacing: -.035em; }
 .rec-card .pill.accent { border-color: #f1d3d1; background: #fff7f6; color: #ba4245; }
 .rec-card h3 { margin: 1px 0 0; color: #303a3c; font-size: 11px; font-weight: 700; }
 .rec-card > small { color: #85908b; font-size: 8px; }
+.rec-card > small.tradeoff-note { color: #697671; font-size: 8px; line-height: 1.55; }
 .rec-card .price { color: #242e31; font-size: 21px; font-weight: 650; letter-spacing: -.055em; }
 .rec-card .price span { color: #8c9692; font-size: 8px; font-weight: 500; letter-spacing: 0; }
 .rec-card ul { flex: 1; margin: 0; padding: 0; list-style: none; }

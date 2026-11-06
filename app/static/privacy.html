@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8f5">
+  <title>Privacy note · OneJourney</title>
+  <style>
+    :root{font-family:Inter,"Segoe UI",sans-serif;color:#263330;background:#f7f8f5;font-synthesis:none;text-rendering:optimizeLegibility}*{box-sizing:border-box}body{margin:0;padding:48px 20px}.sheet{max-width:760px;margin:auto;padding:clamp(24px,6vw,56px);background:#fff;border:1px solid #e3e8e3;box-shadow:0 14px 42px #19291d0b}.eyebrow{color:#ae4548;font-size:11px;font-weight:750;letter-spacing:.14em}h1{font-size:clamp(32px,5vw,46px);letter-spacing:-.045em;line-height:1.08;margin:14px 0}h2{font-size:16px;margin:32px 0 8px}p,li{font-size:14px;line-height:1.75;color:#65716d}a{color:#a83f43}ul{padding-left:20px}.callout{padding:16px 18px;background:#f9eeee;border-left:3px solid #b64347;margin:22px 0;color:#5d4d4e;font-size:13px;line-height:1.7}.back{display:inline-block;margin-top:26px;text-decoration:none;font-size:13px;font-weight:650}
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <div class="eyebrow">ONEJOURNEY · LOCAL DEMONSTRATION</div>
+    <h1>Privacy, clearly explained.</h1>
+    <p>OneJourney demonstrates small-business onboarding with fictional challenge records. Use only the supplied specimen documents. Do not upload real identity documents or customer details.</p>
+    <div class="callout">Document upload requires your consent. OCR runs locally on this computer and compares values with mock registries; no government registry, payment provider, or live Airtel system is contacted.</div>
+    <h2>What is processed</h2>
+    <ul>
+      <li>The local Ollama advisor receives chat after common emails, Indian phone numbers, GSTINs, and Udyam IDs are redacted.</li>
+      <li>Business profile facts remain suggestions until you confirm them. The advisor does not receive KYC fields.</li>
+      <li>OCR extracts document type, business names, dates, and registration identifiers. Preview text masks common identifiers; identifier fields are masked unless you choose to reveal them.</li>
+      <li>The supplied README describes all challenge records, registries, and specimen images as fictional. Funnel responses contain aggregates, not individual lead records.</li>
+    </ul>
+    <h2>Where it is stored and for how long</h2>
+    <p>Saved journeys, entered registry identifiers, consent, OCR results, and simulated order events stay in the local SQLite database selected by <code>ONEJOURNEY_DB</code>. The default file is <code>onejourney.sqlite3</code>. They remain until you delete that database; there is no automatic expiry. The database is not encrypted at rest.</p>
+    <p>To erase saved prototype records, stop the app and delete the configured SQLite database. This does not remove the challenge files in <code>app/data/</code>.</p>
+    <h2>Prototype limits</h2>
+    <p>This project is not a production verification or ordering service. Registry, eligibility, pricing, and activation are simulations. It has no production authentication or access control. Keep it on a trusted local device and do not expose it to the public internet. Check competition terms before redistributing the supplied data outside this repository.</p>
+    <a class="back" href="/">← Return to OneJourney</a>
+  </main>
+</body>
+</html>

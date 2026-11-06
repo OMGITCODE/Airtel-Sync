@@ -8,3 +8,4 @@ pytest>=8,<10
 httpx>=0.27,<1
 openai>=2,<3
 python-dotenv>=1,<2
+opencv-python-headless>=4.8

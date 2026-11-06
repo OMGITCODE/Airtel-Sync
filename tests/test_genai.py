@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app import main
-from app.genai import TOOLS, build_instructions, is_local_model, local_runtime_status, ollama_base_url, run_agent
+from app.genai import TOOLS, build_instructions, is_local_model, local_runtime_status, ollama_base_url, reasoning_effort, run_agent
 
 
 def test_tool_schemas_are_strict_and_privacy_context_is_limited():
@@ -12,11 +12,11 @@ def test_tool_schemas_are_strict_and_privacy_context_is_limited():
     assert all(tool['strict'] is True for tool in TOOLS)
     assert all(tool['parameters']['additionalProperties'] is False for tool in TOOLS)
     instructions = build_instructions(
-        {'business_type': 'Clinic', 'gstin': 'sensitive', 'current_tools': 'private email'}, 'en'
+        {'business_type': 'Clinic', 'gstin': 'sensitive', 'current_tools': 'Mobile hotspot'}, 'en'
     )
     assert 'Clinic' in instructions
+    assert 'Mobile hotspot' in instructions
     assert 'sensitive' not in instructions
-    assert 'private email' not in instructions
 
 
 def test_ollama_url_is_local_only(monkeypatch):
@@ -54,7 +54,18 @@ def test_local_runtime_status_detects_model(monkeypatch):
     assert local_runtime_status() == {'status': 'ready', 'model': 'qwen3:8b'}
 
 
-def test_responses_function_call_cycle_returns_evidence():
+def test_reasoning_effort_is_only_sent_to_models_that_support_it(monkeypatch):
+    monkeypatch.setenv('OLLAMA_MODEL', 'llama3.1:8b')
+    assert reasoning_effort() is None
+    monkeypatch.setenv('OLLAMA_MODEL', 'qwen3:8b')
+    monkeypatch.delenv('OLLAMA_REASONING_EFFORT', raising=False)
+    assert reasoning_effort() == 'none'
+    monkeypatch.setenv('OLLAMA_REASONING_EFFORT', 'high')
+    assert reasoning_effort() == 'high'
+
+
+def test_responses_function_call_cycle_returns_evidence(monkeypatch):
+    monkeypatch.setenv('OLLAMA_MODEL', 'llama3.1:8b')
     call = SimpleNamespace(
         id='call_1',
         function=SimpleNamespace(
@@ -99,6 +110,7 @@ def test_responses_function_call_cycle_returns_evidence():
     assert result['artifacts'][0]['data']['products'][0]['product_id'] == 'P01'
     assert any(item.get('role') == 'tool' for item in completions.calls[1]['messages'] if isinstance(item, dict))
     assert completions.calls[0]['tool_choice'] == 'auto'
+    assert 'reasoning_effort' not in completions.calls[0]
     assert completions.calls[0]['tools'][0]['function']['name'] == 'propose_profile_update'
     assert result['usage'] == {'input_tokens': 8, 'output_tokens': 12}
 
@@ -119,9 +131,68 @@ def test_chat_redacts_direct_identifiers_and_profile_proposal_is_constrained():
     )
     assert proposed['updates']['employees'] == 6
     assert proposed['profile']['needs'] == ['email', 'internet']
+    assert proposed['profile']['current_tools'] == '[email removed]'
     assert 'gstin' not in proposed['profile']
     assert proposed['profile']['confirmed'] is False
     assert 'owner@example.in' not in proposed['updates']['current_tools']
+    assert proposed['updates']['current_tools'] in proposed['profile']['current_tools']
+
+
+def test_profile_proposal_ignores_invalid_or_ambiguous_values():
+    proposed = main.propose_profile(
+        {'needs': ['internet'], 'confirmed': True},
+        {'employees': True, 'sites': 0, 'budget': -1, 'city_tier': True,
+         'needs': [{'unexpected': 'value'}, 'not-a-priority'], 'language': 'xx'},
+    )
+
+    assert proposed['updates'] == {}
+    assert proposed['profile']['confirmed'] is False
+    assert proposed['profile']['needs'] == ['internet']
+
+
+def test_profile_proposal_only_applies_facts_grounded_in_the_latest_message():
+    proposed = main.propose_profile(
+        {'needs': [], 'confirmed': False, 'city_tier': None, 'language': 'hi'},
+        {'business_type': 'Clinic', 'employees': 12, 'sites': 2, 'budget': 4200,
+         'current_tools': 'Mobile hotspot', 'city_tier': 2, 'language': 'en',
+         'needs': ['internet', 'email', 'backup']},
+        source_text='I run a dental clinic with 12 employees at 2 sites. We use a mobile hotspot. Our monthly budget is ₹4,200 and we need internet, email, and backup.',
+    )
+
+    assert proposed['updates']['business_type'] == 'Clinic'
+    assert proposed['updates']['employees'] == 12
+    assert proposed['updates']['sites'] == 2
+    assert proposed['updates']['budget'] == 4200
+    assert proposed['updates']['current_tools'] == 'Mobile hotspot'
+    assert proposed['updates']['needs'] == ['backup', 'email', 'internet']
+    assert 'city_tier' not in proposed['updates']
+    assert 'language' not in proposed['updates']
+
+
+def test_hindi_facts_are_grounded_and_must_keep_requires_explicit_language():
+    source = main.redact_chat('मेरे क्लिनिक में ६ कर्मचारी हैं, इंटरनेट और ईमेल चाहिए, बजट 4500')
+    args = {'business_type': 'Clinic', 'employees': 6, 'budget': 4500,
+            'needs': ['internet', 'email'], 'must': ['email']}
+    proposed = main.propose_profile({'needs': [], 'confirmed': False}, args, source_text=source)
+    assert proposed['updates']['business_type'] == 'Clinic'
+    assert proposed['updates']['employees'] == 6
+    assert proposed['updates']['budget'] == 4500
+    assert set(proposed['updates']['needs']) == {'internet', 'email'}
+    assert 'must' not in proposed['updates']
+
+    explicit = main.redact_chat('इंटरनेट अनिवार्य है और ईमेल चाहिए')
+    args['must'] = ['internet']
+    proposed = main.propose_profile({'needs': [], 'confirmed': False}, args, source_text=explicit)
+    assert proposed['updates']['must'] == ['internet']
+
+
+def test_common_current_tools_fill_the_profile_only_when_stated_as_in_use():
+    profile = {'needs': [], 'confirmed': False}
+    proposed = main.propose_profile(profile, {}, source_text='We currently use a mobile hotspot and personal email.')
+    assert proposed['updates']['current_tools'] == 'Mobile hotspot, Personal email'
+
+    proposed = main.propose_profile(profile, {}, source_text='We do not use a mobile hotspot; we use broadband instead.')
+    assert proposed['updates']['current_tools'] == 'Broadband'
 
 
 def test_local_genai_tools_use_catalogue_and_aggregate_only():

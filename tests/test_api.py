@@ -1,12 +1,15 @@
 import os
 from pathlib import Path
+import shutil
 from tempfile import gettempdir
+import pytest
 os.environ['ONEJOURNEY_DB']=str(Path(gettempdir())/'onejourney_pytest.sqlite3')
 try: Path(os.environ['ONEJOURNEY_DB']).unlink()
 except FileNotFoundError: pass
 from fastapi.testclient import TestClient
-from app.main import app, CAT, GST, UDYAM, check_bundle, calculate
+from app.main import app, CAT, GST, UDYAM, check_bundle, calculate, safe_profile, mask_kyc_value
 client=TestClient(app)
+KYC_FIXTURES=Path(__file__).parents[1]/'app'/'data'/'kyc_documents'
 
 def new():
     d=client.post('/api/journeys',json={'language':'hi'});assert d.status_code==200;return d.json()['id']
@@ -26,6 +29,51 @@ def quote(jid,items):
 def test_health():
     assert client.get('/api/health').json()['products']==25
     assert client.get('/api/metrics').json()['activated']==368
+
+def test_profile_rejects_invalid_values_instead_of_coercing_them():
+    jid=new(); profile(jid)
+    invalid_profiles=[
+        {'employees':0},
+        {'employees':True},
+        {'sites':101},
+        {'city_tier':3},
+        {'budget':-1},
+        {'budget':1.5},
+        {'needs':['internet','made-up-service']},
+        {'gstin':'not-a-gstin'},
+    ]
+    valid_gstin=next(iter(GST))
+    invalid_profiles.append({'gstin':valid_gstin[:-1]+('0' if valid_gstin[-1]!='0' else '1')})
+    for update in invalid_profiles:
+        response=client.patch(f'/api/journeys/{jid}/profile',json={'profile':update})
+        assert response.status_code==422, (update,response.text)
+
+def test_profile_capture_returns_all_discovery_fields_without_registry_ids():
+    profile={'name':'Balaji Dental Care','business_type':'Clinic','employees':6,'sites':2,
+             'city_tier':1,'budget':4200,'needs':['internet','backup'],'language':'en',
+             'current_tools':'Mobile hotspot','gstin':'','udyam_number':'','confirmed':False}
+    safe=safe_profile(profile)
+    assert safe['business_type']=='Clinic'
+    assert safe['employees']==6 and safe['sites']==2 and safe['city_tier']==1
+    assert safe['budget']==4200 and safe['needs']==['internet','backup']
+    assert safe['current_tools']=='Mobile hotspot'
+    assert safe['name']=='Balaji Dental Care'
+    assert 'gstin' not in safe and 'udyam_number' not in safe
+
+def test_new_journey_does_not_prefill_unstated_business_facts():
+    response=client.post('/api/journeys',json={'language':'en'})
+    assert response.status_code==200
+    jid=response.json()['id'];initial=response.json()['profile']
+    assert initial['business_type']==''
+    assert initial['employees'] is None and initial['sites'] is None
+    assert initial['city_tier'] is None and initial['budget'] is None
+    assert initial['needs']==[] and initial['current_tools']==''
+
+    captured=client.patch(f'/api/journeys/{jid}/profile',json={'profile':{'business_type':'Clinic','employees':12}})
+    assert captured.status_code==200,captured.text
+    assert captured.json()['profile']['sites'] is None
+    assert captured.json()['profile']['city_tier'] is None
+    assert client.patch(f'/api/journeys/{jid}/profile',json={'profile':{'confirmed':True}}).status_code==422
 
 def test_dependency_rejection():
     p={'employees':6,'sites':1,'city_tier':2,'gstin':''}
@@ -54,6 +102,60 @@ def test_profile_change_invalidates_accepted_quote():
     assert len(r['invalidated'])>0
     assert client.get('/api/journeys/'+jid).json()['quotes'][0]['accepted']==0
 
+def test_budget_recovery_creates_a_valid_customer_chosen_quote_and_receipt():
+    gst=next(g for g in GST.values() if g['status']=='Active')
+    needs=['internet','backup','calling','email']
+    jid=new();profile(jid,gstin=gst['gstin'],needs=needs,must=['email'])
+    options=client.get(f'/api/journeys/{jid}/recommendations').json()['options']
+    assert options and all(option['valid'] for option in options)
+    original=quote(jid,options[0]['items'])
+    assert original['recurring_paise']>360000
+    assert client.post('/api/quotes/'+original['quote_id']+'/accept').status_code==200
+
+    changed=profile(jid,gstin=gst['gstin'],budget=3600,needs=needs,must=['email'])
+    assert any(issue['code']=='BUDGET' for issue in changed['invalidated'])
+    assert changed['recovery_options']
+    option=changed['recovery_options'][0]
+    assert option['within_budget'] and option['drop']==['P12']
+    assert option['unmet_needs']==['calling']
+    assert client.get(f'/api/journeys/{jid}').json()['quotes'][0]['accepted']==0
+
+    recovered=client.post(f'/api/journeys/{jid}/recover',json={'drop':option['drop']})
+    assert recovered.status_code==200,recovered.text
+    result=recovered.json()
+    assert result['version']==2 and result['valid'] and result['recurring_paise']<=360000
+    assert result['receipt']['requires_new_acceptance'] is True
+    assert result['receipt']['unmet_needs']==['calling']
+    assert 'P16' in result['receipt']['preserved']
+    saved=client.get(f'/api/journeys/{jid}').json()['quotes'][0]
+    assert saved['receipt']['new_version']==2
+    assert client.post('/api/quotes/'+original['quote_id']+'/accept').status_code==409
+    assert client.post('/api/quotes/'+result['quote_id']+'/accept').status_code==200
+
+def test_customer_priorities_and_budget_tradeoffs_are_disclosed():
+    jid=new();profile(jid,gstin='',needs=['internet','calling'])
+    options=client.get(f'/api/journeys/{jid}/recommendations').json()['options']
+    assert options
+    first=options[0]
+    calling=next((need for need in first['unmet_needs'] if need['need']=='calling'),None)
+    assert calling and calling['code']=='ACTIVE_GSTIN' and calling['unlock_with_gstin']
+    assert 'Not included' in first['tradeoff']
+    assert all(any(item['product_id'] in {'P01','P02','P04'} for item in option['items']) for option in options)
+
+def test_require_all_kyc_mode_names_each_missing_document():
+    jid=new()
+    response=client.post('/api/kyc/verify',json={'journey_id':jid,'require_all_documents':True})
+    assert response.status_code==200,response.text
+    assert response.json()['status']!='VERIFIED'
+    assert all(any(doc_type.replace('_',' ') in reason for reason in response.json()['reasons'])
+               for doc_type in ('gst_certificate','udyam_certificate','signatory_id','address_proof'))
+
+def test_kyc_identifier_display_masks_registration_numbers():
+    gst=next(iter(GST))
+    record=next(iter(UDYAM))
+    assert mask_kyc_value(gst)==gst[:2]+'*'*9+gst[-4:]
+    assert mask_kyc_value(record)=='UDYAM-**-**-*******'
+
 def test_order_gates_and_idempotency():
     jid=new();profile(jid)
     q=quote(jid,[{'product_id':'P01','quantity':1}]);client.post('/api/quotes/'+q['quote_id']+'/accept')
@@ -61,6 +163,7 @@ def test_order_gates_and_idempotency():
     assert client.post('/api/orders',json=body).status_code==409
     assert client.post('/api/handoffs',json={'journey_id':jid,'reason':'Need help','permission':False}).status_code==403
 
+@pytest.mark.skipif(shutil.which('tesseract') is None, reason='Tesseract OCR executable is not installed on this machine')
 def test_ocr_and_kyc_real_document():
     gst=next(g for g in GST.values() if g['status']=='Active')
     ud=next((u for u in UDYAM.values() if u['enterprise_name'].casefold()==gst['legal_name'].casefold()),None)
@@ -74,7 +177,8 @@ def test_ocr_and_kyc_real_document():
     x=client.post('/api/kyc/documents',data={'journey_id':jid},files={'file':('demo.png',fixture.content,'image/png')})
     assert x.status_code==200,x.text
     text=x.json()['extracted']['text_preview']
-    assert gst['gstin'] in text
+    assert gst['gstin'] not in text
+    assert '[GSTIN removed]' in text
     did=x.json()['document_id'];assert client.post('/api/kyc/documents/'+did+'/confirm').status_code==200
     k=client.post('/api/kyc/verify',json={'journey_id':jid,'gstin':gst['gstin'],'udyam_number':ud['udyam_number'],'legal_name':gst['legal_name']})
     assert k.status_code==200,k.text
@@ -88,3 +192,26 @@ def test_ocr_and_kyc_real_document():
     for status in ['SERVICEABILITY_PENDING','INSTALLATION_SCHEDULED','PROVISIONING','ACTIVATED']:
         assert client.post('/api/mock/ops/orders/'+oid+'/events',json={'status':status}).status_code==200
     assert client.get('/api/orders/'+oid).json()['status']=='ACTIVATED'
+
+@pytest.mark.skipif(shutil.which('tesseract') is None, reason='Tesseract OCR executable is not installed on this machine')
+def test_four_document_specimen_kyc_verifies_only_after_review():
+    jid=new();profile(jid)
+    assert client.post('/api/kyc/consent',data={'journey_id':jid,'accepted':'true'}).status_code==200
+    gstin='';udyam=''
+    for kind in ('gst_certificate','udyam_certificate','signatory_id','address_proof'):
+        image=KYC_FIXTURES/f'K02_{kind}.png'
+        response=client.post('/api/kyc/documents',data={'journey_id':jid},files={'file':(image.name,image.read_bytes(),'image/png')})
+        assert response.status_code==200,response.text
+        uploaded=response.json()['extracted']
+        assert all(identifier not in uploaded['text_preview']
+                   for identifier in uploaded['gstin_candidates']+uploaded['udyam_candidates'])
+        if uploaded['gstin_candidates']:gstin=uploaded['gstin_candidates'][0]
+        if uploaded['udyam_candidates']:udyam=uploaded['udyam_candidates'][0]
+        document_id=response.json()['document_id']
+        assert client.post(f'/api/kyc/documents/{document_id}/confirm').status_code==200
+
+    assert gstin in GST and udyam in UDYAM
+    verification=client.post('/api/kyc/verify',json={'journey_id':jid,'gstin':gstin,'udyam_number':udyam,
+        'legal_name':GST[gstin]['legal_name'],'require_all_documents':True})
+    assert verification.status_code==200,verification.text
+    assert verification.json()['status']=='VERIFIED',verification.text

@@ -16,7 +16,7 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "name": "propose_profile_update",
-        "description": "Propose only facts the customer clearly stated. Values remain unconfirmed until the customer reviews the profile form.",
+        "description": "Propose only facts the customer clearly stated. Mark a need as must-have only when the customer explicitly says it is essential or must stay. Values remain unconfirmed until profile review.",
         "strict": True,
         "parameters": {
             "type": "object",
@@ -27,10 +27,11 @@ TOOLS: list[dict[str, Any]] = [
                 "city_tier": {"type": ["integer", "null"], "enum": [1, 2, None]},
                 "budget": {"type": ["integer", "null"]},
                 "needs": {"type": "array", "items": {"type": "string", "enum": ALLOWED_NEEDS}},
+                "must": {"type": "array", "items": {"type": "string", "enum": ALLOWED_NEEDS}},
                 "current_tools": {"type": ["string", "null"]},
                 "language": {"type": ["string", "null"], "enum": ["en", "hi", "mr", None]},
             },
-            "required": ["business_type", "employees", "sites", "city_tier", "budget", "needs", "current_tools", "language"],
+            "required": ["business_type", "employees", "sites", "city_tier", "budget", "needs", "must", "current_tools", "language"],
             "additionalProperties": False,
         },
     },
@@ -135,9 +136,14 @@ def configured_model() -> str:
     return os.getenv("OLLAMA_MODEL", MODEL_DEFAULT).strip() or MODEL_DEFAULT
 
 
-def reasoning_effort() -> str:
-    value = os.getenv("OLLAMA_REASONING_EFFORT", "medium").strip().lower()
-    return value if value in {"low", "medium", "high", "xhigh", "max"} else "medium"
+def reasoning_effort(model: str | None = None) -> str | None:
+    """Return an effort setting only for local models that support thinking."""
+    selected_model = (model or configured_model()).casefold()
+    if not selected_model.startswith(("qwen3", "deepseek-r1", "gpt-oss")):
+        return None
+    default = "none" if selected_model.startswith("qwen3") else "medium"
+    value = os.getenv("OLLAMA_REASONING_EFFORT", default).strip().lower()
+    return value if value in {"none", "low", "medium", "high", "xhigh", "max"} else default
 
 
 def is_local_model(model: str | None = None) -> bool:
@@ -184,7 +190,7 @@ def create_client():
 def build_instructions(profile: dict[str, Any], language: str) -> str:
     safe_profile = {
         key: profile.get(key)
-        for key in ("business_type", "employees", "sites", "city_tier", "budget", "needs", "language", "confirmed")
+        for key in ("business_type", "employees", "sites", "city_tier", "budget", "needs", "must", "language", "current_tools", "confirmed")
         if key in profile
     }
     language_name = {"hi": "Hindi", "mr": "Marathi", "en": "English"}.get(language, "the language used by the customer")
@@ -230,14 +236,17 @@ async def run_agent(
     assistant = None
 
     for step in range(4):
-        response = await client.chat.completions.create(
+        request = dict(
             model=model,
-            reasoning_effort=reasoning_effort(),
             messages=messages,
             tools=CHAT_TOOLS,
             tool_choice="auto" if step < 3 else "none",
             max_tokens=1100,
         )
+        effort = reasoning_effort(model)
+        if effort is not None:
+            request["reasoning_effort"] = effort
+        response = await client.chat.completions.create(**request)
         assistant = response.choices[0].message
         calls = getattr(assistant, "tool_calls", None) or []
         if not calls:

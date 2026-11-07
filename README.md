@@ -10,6 +10,8 @@ The priority vocabulary and its English, Hindi, and Marathi aliases are defined 
 
 The overview includes an interactive acquisition intelligence dashboard. Segment and lead-month filters recompute aggregate funnel conversion, the largest observed stage loss, monthly lead cohorts, activation time, follow-up effort, and synthetic acquisition cost from the supplied records. Starting a customer journey adds a live milestone strip that follows profile confirmation, quote acceptance, KYC verification, and simulated activation. The dashboard does not expose individual lead records.
 
+The interface background is an original, lightweight Canvas animation inspired by Airtel SYNC: a low-contrast orbital network, pulsing service nodes, and sparse moving binary glyphs. It follows the selected light/dark theme, pauses when the tab is hidden, and becomes still when reduced motion is preferred. It uses no external images or animation services.
+
 ## Run locally
 
 Requirements: Python 3.11+, the Tesseract OCR executable, and Ollama with the local `qwen3:8b` model.

@@ -6,6 +6,14 @@
   <meta name="theme-color" content="#11191d">
   <meta name="description" content="OneJourney brings business discovery, plan recommendations, verification and activation into one transparent digital journey.">
   <title>OneJourney — Airtel SYNC 2026</title>
+  <script>
+    (() => {
+      try {
+        const saved = localStorage.getItem('onejourney-theme');
+        document.documentElement.dataset.theme = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      } catch { document.documentElement.dataset.theme = 'light'; }
+    })();
+  </script>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -42,6 +50,11 @@
         <div class="crumb"><span class="crumb-label">AIRTEL SYNC 2026</span><span class="crumb-slash">/</span><span>UDYAM DIGITAL</span></div>
         <div class="top-right">
           <span class="environment"><span class="environment-dot"></span> SYNTHETIC ENVIRONMENT</span>
+          <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark mode" aria-pressed="false" title="Switch to dark mode">
+            <svg class="theme-icon moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.5 8.5 0 1 0 20.2 15.4Z"/></svg>
+            <svg class="theme-icon sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.7"/><path d="M12 2.5v2.1M12 19.4v2.1M4.1 4.1l1.5 1.5m12.8 12.8 1.5 1.5M2.5 12h2.1m14.8 0h2.1M4.1 19.9l1.5-1.5M18.4 5.6l1.5-1.5"/></svg>
+            <span id="theme-toggle-label">Dark mode</span>
+          </button>
           <span class="top-divider" aria-hidden="true"></span>
           <div class="workspace-user"><span class="user-avatar">OJ</span><span class="user-label">Demo workspace</span></div>
         </div>

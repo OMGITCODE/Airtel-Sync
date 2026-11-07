@@ -10,7 +10,7 @@ The priority vocabulary and its English, Hindi, and Marathi aliases are defined 
 
 The overview includes an interactive acquisition intelligence dashboard. Segment and lead-month filters recompute aggregate funnel conversion, the largest observed stage loss, monthly lead cohorts, activation time, follow-up effort, and synthetic acquisition cost from the supplied records. Starting a customer journey adds a live milestone strip that follows profile confirmation, quote acceptance, KYC verification, and simulated activation. The dashboard does not expose individual lead records.
 
-The interface background is an original, lightweight Canvas animation inspired by Airtel SYNC: a low-contrast orbital network, pulsing service nodes, and sparse moving binary glyphs. It follows the selected light/dark theme, pauses when the tab is hidden, and becomes still when reduced motion is preferred. It uses no external images or animation services.
+The overview opens with a locally rendered signal atlas. Animated packets follow illustrative routes over a shaded globe. Motion pauses when the atlas is offscreen or the tab is hidden. The atlas respects reduced motion and remembers the visitor’s play/pause choice. Fonts and artwork are bundled for offline use. Each stop on the roadmap opens its workspace, and the overview, advisor, quote, KYC, tracker, partner desk and privacy note share light and dark themes.
 
 ## Run locally
 
@@ -91,7 +91,7 @@ The lead analytics endpoint and GenAI tool use aggregate fields from this suppli
 - `.github/workflows/ci.yml`: Python compilation, JavaScript syntax validation, and automated tests.
 - `Dockerfile`: local container setup with Tesseract.
 - `docker-compose.yml`: app + local Ollama services and persistent data volumes.
-- `submission/`: 7-slide business case, architecture diagram, captioned 50-second demo video and scene script.
+- `submission/`: 7-slide business case, architecture diagram, captioned 43-second demo video and scene script.
 
 ## Checks
 

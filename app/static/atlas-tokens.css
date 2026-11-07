@@ -1,0 +1,23 @@
+@font-face {
+  font-family: "DM Sans"; src: url("./fonts/dm-sans-latin.woff2") format("woff2");
+  font-weight: 400 800; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Serif"; src: url("./fonts/instrument-serif-italic-latin.woff2") format("woff2");
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+:root {
+  --canvas: #f4f2ec; --surface: #fbfaf6; --surface-soft: #edece6;
+  --ink: #18212a; --ink-soft: #414b53; --muted: #56616a; --quiet: #66717a; --line: #d3d4cc;
+  --accent: #f36447; --red: #ab3523; --red-dark: #8e281b; --red-pale: #fae8df;
+  --charcoal: #10161d; --charcoal-2: #1c242d; --shadow: none;
+  --display-serif: "Instrument Serif", Georgia, serif;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --gutter: clamp(22px, 5.5vw, 92px); --frame: 1600px;
+  font-family: "DM Sans", "Segoe UI", system-ui, sans-serif;
+}
+html[data-theme="dark"] {
+  --canvas: #12191f; --surface: #192128; --surface-soft: #202a32;
+  --ink: #f4f0e8; --ink-soft: #cad0cc; --muted: #a1acb0; --quiet: #939fa4; --line: #374047;
+  --accent: #ff795b; --red: #ff896d; --red-dark: #ffab92; --red-pale: #342422;
+}

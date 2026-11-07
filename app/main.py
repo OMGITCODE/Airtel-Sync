@@ -235,7 +235,9 @@ def metrics(segment:str='all',period:str='all'):
  calls=numeric(activated,'customer_follow_up_calls')
  costs=numeric(cohort,'acquisition_cost_inr')
  customer_scores=numeric(activated,'nps_score')
- churn=[x.get('churned_within_6_months')=='1' for x in activated if x.get('churned_within_6_months') in ('0','1')]
+ churn_values = {'Y': True, 'N': False, '1': True, '0': False}
+ churn = [churn_values[value] for row in activated
+          if (value := row.get('churned_within_6_months', '').strip().upper()) in churn_values]
  months=[]
  for month in period_options:
   monthly=[x for x in segment_cohort if x.get('created_date','').startswith(month)]

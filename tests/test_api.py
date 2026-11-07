@@ -32,6 +32,7 @@ def test_health():
     metrics=client.get('/api/metrics').json()
     assert metrics['activated']==368
     assert metrics['avg_acquisition_cost_inr']==15053
+    assert metrics['churn_pct']==15.2
     assert client.get('/api/health').json()['retention_days']==7
 
 def test_partner_handoff_propensity_reports_heldout_auc_without_contact_details():

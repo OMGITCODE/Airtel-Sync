@@ -3,16 +3,69 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f7f8f5">
+  <meta name="theme-color" content="#f4f2ec">
   <title>Privacy note · OneJourney</title>
+  <script>
+    (() => {
+      const preference = window.matchMedia('(prefers-color-scheme: dark)');
+      function applyTheme() {
+        let saved;
+        try { saved = localStorage.getItem('onejourney-theme'); } catch {}
+        const theme = ['light', 'dark'].includes(saved) ? saved : preference.matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = theme;
+        document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#12191f' : '#f4f2ec';
+      }
+      applyTheme();
+      preference.addEventListener('change', applyTheme);
+      window.addEventListener('storage', event => {
+        if (event.key === 'onejourney-theme' || event.key === null) applyTheme();
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/atlas-tokens.css">
   <style>
-    :root{font-family:Inter,"Segoe UI",sans-serif;color:#263330;background:#f7f8f5;font-synthesis:none;text-rendering:optimizeLegibility}*{box-sizing:border-box}body{margin:0;padding:42px 20px}.sheet{max-width:760px;margin:auto;padding:clamp(24px,5vw,50px);background:#fff;border:1px solid #e3e8e3;box-shadow:0 14px 42px #19291d0b}.eyebrow{color:#ae4548;font-size:10px;font-weight:750;letter-spacing:.14em}h1{font-size:clamp(30px,5vw,42px);letter-spacing:-.045em;line-height:1.08;margin:12px 0}h2{font-size:15px;margin:22px 0 6px}p,li{font-size:12px;line-height:1.62;color:#65716d}p{margin:7px 0}a{color:#a83f43}.callout{padding:12px 15px;background:#f9eeee;border-left:3px solid #b64347;margin:16px 0;color:#5d4d4e;font-size:12px;line-height:1.6}.back{display:inline-block;margin-top:20px;text-decoration:none;font-size:12px;font-weight:650}@media print{body{padding:0;background:#fff}.sheet{max-width:none;padding:0;border:0;box-shadow:none}h1{font-size:30px}h2{margin-top:15px}p,.callout{font-size:10.5px;line-height:1.45}.back{display:none}@page{size:A4;margin:14mm}}
+    * { box-sizing: border-box; }
+    :root { color-scheme: light; text-rendering: optimizeLegibility; }
+    html[data-theme="dark"] { color-scheme: dark; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); }
+    .sheet {
+      width: min(calc(100% - 40px), 745px);
+      margin: clamp(32px, 6vw, 88px) auto;
+      padding-block: 18px 28px;
+      border-block: 1px solid var(--line);
+    }
+    .eyebrow { font: 600 11px/1.6 var(--mono); letter-spacing: .06em; color: var(--muted); }
+    h1 { margin: 22px 0 20px; font-size: clamp(42px, 7vw, 76px); font-weight: 500; letter-spacing: -.065em; line-height: .98; }
+    h1 em { color: var(--red); font: italic 400 1.1em/.95 var(--display-serif); letter-spacing: -.04em; }
+    h2 { margin: 28px 0 7px; font-size: 20px; line-height: 1.25; letter-spacing: -.035em; }
+    p, .callout { font-size: 15px; line-height: 1.65; color: var(--ink-soft); }
+    p { margin: 0; }
+    strong { color: var(--ink); }
+    code { font: 500 .9em/1.4 var(--mono); overflow-wrap: anywhere; }
+    .callout { margin: 22px 0; padding: 14px 18px; border-left: 2px solid var(--accent); background: var(--surface); }
+    .back { display: inline-flex; align-items: center; min-height: 44px; margin-top: 20px; color: var(--ink); font-size: 14px; font-weight: 600; text-underline-offset: 4px; }
+    .back:hover { color: var(--red); }
+    .back:focus-visible { outline: 2px solid var(--red); outline-offset: 4px; }
+    @page { size: A4; margin: 14mm; }
+    @media print {
+      :root, html[data-theme="dark"] {
+        color-scheme: light;
+        --canvas: #fff; --surface: #fff; --ink: #14191d; --ink-soft: #232a31;
+        --muted: #454f55; --red: #8f3426; --accent: #8f3426;
+      }
+      .sheet { width: 100%; margin: 0; padding: 0; border: 0; }
+      h1 { margin: 12px 0; font-size: 32px; }
+      h2 { margin: 16px 0 4px; font-size: 14px; break-after: avoid; }
+      p, .callout { font-size: 12px; line-height: 1.5; }
+      .callout { margin: 12px 0; padding: 6px 12px; }
+      .back { display: none; }
+    }
   </style>
 </head>
 <body>
   <main class="sheet">
     <div class="eyebrow">ONEJOURNEY · LOCAL DEMONSTRATION · 7 NOVEMBER 2026</div>
-    <h1>Privacy, clearly explained.</h1>
+    <h1>Privacy, <em>clearly explained.</em></h1>
     <p>Use only the supplied synthetic challenge records. Do not upload real identity documents or customer information. OneJourney is not an Airtel production service and has no production authentication.</p>
     <div class="callout">KYC upload requires purpose-specific consent. Images are processed in memory by local OpenCV/Tesseract OCR and are not saved. Extracted fields, masked previews, identifiers, consent, profile, quotes, chat history, handoffs and simulated order events are stored in the local SQLite database, which is not encrypted at rest.</div>
     <h2>Local processing</h2>

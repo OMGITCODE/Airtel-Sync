@@ -8,6 +8,8 @@ Discovery covers all 20 customer priorities represented by the supplied 25-item 
 
 The priority vocabulary and its English, Hindi, and Marathi aliases are defined once and shared by the form, local advisor, input validation, and recommender. Unknown priorities are rejected with a clear correction path rather than silently ignored.
 
+The overview includes an interactive acquisition intelligence dashboard. Segment and lead-month filters recompute aggregate funnel conversion, the largest observed stage loss, monthly lead cohorts, activation time, follow-up effort, and synthetic acquisition cost from the supplied records. Starting a customer journey adds a live milestone strip that follows profile confirmation, quote acceptance, KYC verification, and simulated activation. The dashboard does not expose individual lead records.
+
 ## Run locally
 
 Requirements: Python 3.11+, the Tesseract OCR executable, and Ollama with the local `qwen3:8b` model.

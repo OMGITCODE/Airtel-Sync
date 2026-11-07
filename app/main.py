@@ -169,12 +169,37 @@ def demo_document():
  return Response(content=output.getvalue(),media_type='image/png',headers={'Content-Disposition':'attachment; filename=fictional-demo-business-certificate.png'})
 
 @app.get('/api/metrics')
-def metrics():
- stages=Counter(x['stage_reached'] for x in LEADS);activated=[x for x in LEADS if x.get('outcome')=='Activated']
+def metrics(segment:str='all',period:str='all'):
+ segment_options=sorted({x['segment'] for x in LEADS if x.get('segment')})
+ period_options=sorted({x.get('created_date','')[:7] for x in LEADS if x.get('created_date')})
+ if segment!='all' and segment not in segment_options:raise HTTPException(422,'Unknown lead segment')
+ if period!='all' and period not in period_options:raise HTTPException(422,'Unknown cohort period')
+ segment_cohort=LEADS if segment=='all' else [x for x in LEADS if x.get('segment')==segment]
+ cohort=segment_cohort if period=='all' else [x for x in segment_cohort if x.get('created_date','').startswith(period)]
  rank={'Lead':0,'Contacted':1,'Needs assessed':2,'Quote accepted':3,'KYC complete':4,'Activated':5}
- needs_assessed=sum(rank.get(x['stage_reached'],0)>=2 for x in LEADS)
- quote_accepted=sum(rank.get(x['stage_reached'],0)>=3 for x in LEADS)
- return {'leads':len(LEADS),'activated':len(activated),'activation_pct':round(len(activated)/len(LEADS)*100,2),'quote_accepted':quote_accepted,'needs_assessed':needs_assessed,'quote_accept_pct':round(quote_accepted/needs_assessed*100,2) if needs_assessed else 0,'source':'Computed from supplied synthetic challenge records. Not real Airtel performance.'}
+ stage_order=[('Lead',0),('Contacted',1),('Needs assessed',2),('Quote accepted',3),('KYC complete',4),('Activated',5)]
+ funnel=[]
+ previous=None
+ for label,level in stage_order:
+  count=sum(rank.get(x.get('stage_reached','Lead'),0)>=level for x in cohort)
+  funnel.append({'label':label,'count':count,'conversion_pct':round(count*100/previous,1) if previous else None})
+  previous=count
+ drops=[{'from':funnel[i-1]['label'],'to':funnel[i]['label'],'count':funnel[i-1]['count']-funnel[i]['count'],'drop_pct':round((funnel[i-1]['count']-funnel[i]['count'])*100/funnel[i-1]['count'],1) if funnel[i-1]['count'] else 0} for i in range(1,len(funnel))]
+ bottleneck=max(drops,key=lambda x:x['count']) if drops else None
+ activated=[x for x in cohort if x.get('outcome')=='Activated']
+ def numeric(records,key):return [float(x[key]) for x in records if x.get(key,'').replace('.','',1).isdigit()]
+ durations=numeric(activated,'days_lead_to_activation')
+ calls=numeric(activated,'customer_follow_up_calls')
+ costs=numeric(activated,'acquisition_cost_inr')
+ customer_scores=numeric(activated,'nps_score')
+ churn=[x.get('churned_within_6_months')=='1' for x in activated if x.get('churned_within_6_months') in ('0','1')]
+ months=[]
+ for month in period_options:
+  monthly=[x for x in segment_cohort if x.get('created_date','').startswith(month)]
+  monthly_activated=sum(x.get('outcome')=='Activated' for x in monthly)
+  months.append({'period':month,'leads':len(monthly),'activated':monthly_activated,'activation_pct':round(monthly_activated*100/len(monthly),2) if monthly else 0})
+ needs_assessed=funnel[2]['count'];quote_accepted=funnel[3]['count']
+ return {'leads':len(cohort),'activated':len(activated),'activation_pct':round(len(activated)/len(cohort)*100,2) if cohort else 0,'quote_accepted':quote_accepted,'needs_assessed':needs_assessed,'quote_accept_pct':round(quote_accepted*100/needs_assessed,2) if needs_assessed else 0,'funnel':funnel,'bottleneck':bottleneck,'trend':months,'avg_activation_days':round(sum(durations)/len(durations),1) if durations else None,'avg_follow_up_calls':round(sum(calls)/len(calls),1) if calls else None,'avg_acquisition_cost_inr':round(sum(costs)/len(costs)) if costs else None,'avg_customer_score':round(sum(customer_scores)/len(customer_scores),1) if customer_scores else None,'churn_pct':round(sum(churn)*100/len(churn),1) if churn else None,'segments':['all']+segment_options,'periods':['all']+period_options,'segment':segment,'period':period,'source':'Computed from supplied synthetic challenge records. Not real Airtel performance.'}
 
 @app.post('/api/journeys')
 def newjourney(b:CreateJourney):

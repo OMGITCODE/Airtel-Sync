@@ -49,7 +49,7 @@
       <header class="topbar">
         <div class="crumb"><span class="crumb-label">AIRTEL SYNC 2026</span><span class="crumb-slash">/</span><span>UDYAM DIGITAL</span></div>
         <div class="top-right">
-          <span class="environment"><span class="environment-dot"></span> SYNTHETIC ENVIRONMENT</span>
+          <span class="environment" id="environment-status" title="Checking local advisor status"><span id="environment-dot" class="environment-dot"></span><span id="environment-label">LOCAL APP CONNECTING</span></span>
           <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark mode" aria-pressed="false" title="Switch to dark mode">
             <svg class="theme-icon moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.4A8.5 8.5 0 0 1 8.6 3.8 8.5 8.5 0 1 0 20.2 15.4Z"/></svg>
             <svg class="theme-icon sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.7"/><path d="M12 2.5v2.1M12 19.4v2.1M4.1 4.1l1.5 1.5m12.8 12.8 1.5 1.5M2.5 12h2.1m14.8 0h2.1M4.1 19.9l1.5-1.5M18.4 5.6l1.5-1.5"/></svg>
@@ -92,11 +92,54 @@
 
           <div class="metrics-row" aria-label="Prototype dataset summary">
             <div class="metric-intro"><span class="metric-overline">THE CHALLENGE</span><strong>Designed for the<br>real onboarding gap.</strong></div>
-            <div class="metric"><span class="metric-label">SYNTHETIC LEADS</span><strong id="leadstat">5,000</strong><small>Reference cohort</small></div>
-            <div class="metric"><span class="metric-label">CURRENT ACTIVATION</span><strong>7.36<span class="metric-unit">%</span></strong><small>368 of 5,000 leads</small></div>
-            <div class="metric"><span class="metric-label">CATALOGUE OPTIONS</span><strong>25</strong><small>Eligibility checked</small></div>
+            <div class="metric"><span class="metric-label">SYNTHETIC LEADS</span><strong id="leadstat">—</strong><small id="leadstat-caption">Loading cohort…</small></div>
+            <div class="metric"><span class="metric-label">CURRENT ACTIVATION</span><strong><span id="activation-rate">—</span><span class="metric-unit">%</span></strong><small id="activated-count">Loading cohort…</small></div>
+            <div class="metric"><span class="metric-label">CATALOGUE OPTIONS</span><strong id="catalogue-stat">25</strong><small>Eligibility checked</small></div>
             <div class="metric-source"><span class="source-mark">i</span><span>Challenge data is synthetic.<br>Product rules are explicit.</span></div>
           </div>
+
+          <section class="analytics-console" aria-labelledby="analytics-title">
+            <div class="analytics-heading">
+              <div class="analytics-title-copy"><span class="section-kicker">ACQUISITION INTELLIGENCE · SYNTHETIC COHORTS</span><h2 id="analytics-title">See where momentum builds.</h2><p>Explore the supplied lead cohort by segment and month. These are reference observations, not live Airtel performance.</p></div>
+              <div class="analytics-controls">
+                <label>Segment<select id="segment-filter" aria-label="Filter by business segment"><option value="all">All segments</option></select></label>
+                <label>Lead month<select id="period-filter" aria-label="Filter by lead month"><option value="all">Full quarter</option></select></label>
+                <button id="refresh-analytics" class="icon-action" type="button" aria-label="Refresh cohort insights" title="Refresh cohort insights"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 12.4-3"/></svg></button>
+              </div>
+            </div>
+
+            <div id="active-journey" class="journey-pulse" hidden aria-live="polite"></div>
+
+            <div class="analytics-kpis" aria-live="polite">
+              <article class="analytics-kpi"><span>QUOTE ACCEPTANCE</span><strong id="quote-acceptance">—</strong><small>of assessed businesses</small></article>
+              <article class="analytics-kpi"><span>AVERAGE ACTIVATION</span><strong id="activation-days">—</strong><small>days from first lead</small></article>
+              <article class="analytics-kpi"><span>FOLLOW-UP EFFORT</span><strong id="follow-up-calls">—</strong><small>calls per activated customer</small></article>
+              <article class="analytics-kpi"><span>BLENDED ACQUISITION</span><strong id="acquisition-cost">—</strong><small>per activated customer</small></article>
+            </div>
+
+            <div class="analytics-grid">
+              <article class="analytics-panel funnel-panel">
+                <div class="analytics-panel-head"><div><span class="panel-overline">CONVERSION PATH</span><h3>Journey funnel</h3></div><span class="dataset-badge"><i></i> FILTERED COHORT</span></div>
+                <div id="funnel-chart" class="funnel-chart" aria-live="polite"><div class="chart-loading">Loading cohort stages…</div></div>
+                <div class="chart-footnote"><span class="source-mark">i</span><span>Stage counts are cumulative: each lead is counted at their furthest recorded step.</span></div>
+              </article>
+              <article class="analytics-panel signal-panel">
+                <div class="analytics-panel-head"><div><span class="panel-overline">DECISION SUPPORT</span><h3>Largest observed drop</h3></div><span class="signal-mark">↘</span></div>
+                <div id="bottleneck" class="bottleneck-content"><div class="chart-loading">Finding the largest stage gap…</div></div>
+                <div class="signal-divider"></div>
+                <div class="signal-row"><span>Activated in cohort</span><b id="signal-activated">—</b></div>
+                <div class="signal-row"><span>Average customer score</span><b id="signal-score">—</b></div>
+                <div class="signal-row"><span>Six-month churn</span><b id="signal-churn">—</b></div>
+                <small class="insight-caveat">Observed gap is a place to investigate, not a proven cause.</small>
+              </article>
+              <article class="analytics-panel trend-panel">
+                <div class="analytics-panel-head"><div><span class="panel-overline">APRIL — JUNE 2026</span><h3>Monthly lead cohorts</h3></div><div class="trend-legend"><span><i class="legend-leads"></i>Leads</span><span><i class="legend-converted"></i>Activated</span></div></div>
+                <div id="cohort-trend" class="cohort-trend" aria-live="polite"><div class="chart-loading">Loading monthly trend…</div></div>
+                <div class="chart-footnote"><span class="source-mark">i</span><span>Activation rate is shown by lead creation month, not calendar-month activations.</span></div>
+              </article>
+            </div>
+            <div class="analytics-meta"><span id="analytics-source">Computed from supplied challenge records.</span><span>LAST REFRESHED <b id="analytics-updated">—</b></span></div>
+          </section>
 
           <div class="section-heading workflow-heading"><div><span class="section-index">01</span><div><div class="section-kicker">FROM FIRST NEED TO FIRST DAY</div><h2>A smoother path, at every step.</h2></div></div><span class="section-note">One conversation. Clear decisions. No starting over.</span></div>
           <div class="steps">

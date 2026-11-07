@@ -865,3 +865,108 @@ html[data-theme="dark"] #sync-background { opacity: .9; mix-blend-mode: screen; 
   .theme-toggle { width: 30px; min-width: 30px; padding: 0; }
   #theme-toggle-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 }
+
+/* Operational workspace refinement */
+:root { --radius-card: 11px; }
+body { font-size: 14px; }
+.content { padding-top: clamp(27px, 3vw, 43px); }
+.overview-kicker, .view-kicker { font-size: 9px; letter-spacing: 1.15px; }
+.kicker-meta { font-size: 9px; }
+.hero-label { margin-bottom: 16px; font-size: 9px; letter-spacing: 1.05px; }
+.hero-copy h1 { max-width: 720px; font-size: clamp(43px, 4.55vw, 64px); line-height: 1.02; }
+.lead { max-width: 590px; margin: 19px 0 24px; color: #606c6d; font-size: 14px; line-height: 1.78; }
+.btn { min-height: 45px; padding-inline: 17px; border-radius: 7px; font-size: 11px; }
+.journey-card { min-height: 330px; padding: 25px 25px 19px; border: 1px solid #303a3d; border-radius: 11px; background: radial-gradient(ellipse at 100% 0, rgba(227,33,43,.11), transparent 38%), linear-gradient(145deg, #192326 0%, #121a1d 76%); box-shadow: 0 23px 54px rgba(20,29,31,.14); }
+.journey-card h2 { font-size: 23px; }
+.card-overline { font-size: 9px; }
+.journey-card-state { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 6px 9px; border: 1px solid #334043; border-radius: 99px; background: rgba(255,255,255,.035); color: #aab5b3; font-size: 8px; font-weight: 750; letter-spacing: .8px; }
+.journey-card-state i { width: 6px; height: 6px; border-radius: 50%; background: #8b9894; }
+.journey-card-state.is-active i { background: #f05b63; box-shadow: 0 0 0 4px rgba(240,91,99,.13); animation: status-pulse 2.2s ease-in-out infinite; }
+.journey-card-state.is-complete i { background: #67c195; box-shadow: 0 0 0 4px rgba(103,193,149,.12); }
+@keyframes status-pulse { 50% { box-shadow: 0 0 0 7px rgba(240,91,99,0); } }
+.journey-flow { margin-top: 23px; }
+.journey-flow::after { position: absolute; top: 10px; left: 12%; z-index: 0; width: var(--journey-progress, 0%); height: 1px; background: linear-gradient(90deg, #df343d, #fa777c); content: ""; transition: width .35s ease; }
+.flow-step { z-index: 1; }
+.flow-index { font-size: 8px; }
+.flow-point { width: 21px; height: 21px; border-color: #556163; transition: border-color .2s ease, box-shadow .2s ease, background .2s ease; }
+.flow-point i { width: 6px; height: 6px; background: #7e8a89; transition: background .2s ease, transform .2s ease; }
+.flow-step:nth-of-type(4) .flow-point i, .flow-step:nth-of-type(5) .flow-point i { background: #7e8a89; }
+.flow-step.is-current .flow-point { border-color: #ff6a70; box-shadow: 0 0 0 4px rgba(227,33,43,.12); }
+.flow-step.is-current .flow-point i { transform: scale(1.18); background: #ff686f; }
+.flow-step.is-done .flow-point { border-color: #489276; background: #203c32; }
+.flow-step.is-done .flow-point i { width: 7px; height: 7px; background: #7ac49d; }
+.flow-step.is-current .flow-name { color: #fff; }
+.flow-step.is-done .flow-name { color: #bce1cb; }
+.flow-name { font-size: 10px; }
+.flow-detail { font-size: 9px; }
+.journey-card-foot { margin-top: 20px; padding-top: 14px; font-size: 9px; }
+.card-foot-mark { font-size: 8px; }
+.metrics-row { margin-bottom: 34px; padding: 19px 20px; border-color: #dfe4df; border-radius: 10px; box-shadow: 0 9px 28px rgba(23,34,32,.035); }
+.metric-intro, .metric, .metric-source { min-height: 64px; }
+.metric-overline, .metric-label { font-size: 8px; letter-spacing: 1px; }
+.metric-intro strong { font-size: 12px; }
+.metric strong { font-size: 25px; }
+.metric small, .metric-source { font-size: 9px; }
+.analytics-console { border-radius: 12px; }
+.analytics-title-copy h2 { font-size: 27px; }
+.analytics-title-copy p { font-size: 12px; line-height: 1.65; }
+.analytics-kpi span { font-size: 8px; }
+.analytics-kpi strong { font-size: 23px; }
+.analytics-kpi small { font-size: 10px; }
+.analytics-panel { border-radius: 9px; }
+.analytics-panel-head h3 { font-size: 16px; }
+.panel-overline, .dataset-badge, .trend-legend { font-size: 8px; }
+.funnel-label, .funnel-conversion, .chart-footnote, .signal-row { font-size: 10px; }
+.funnel-count { font-size: 14px; }
+.chart-footnote { line-height: 1.55; }
+.analytics-meta { font-size: 8px; }
+.section-heading h2 { font-size: 22px; }
+.section-kicker { font-size: 8px; }
+.section-note { font-size: 10px; }
+.steps { gap: 12px; }
+.step { min-height: 190px; padding: 19px; border-radius: 10px; box-shadow: 0 8px 23px rgba(23,34,32,.03); }
+.step h3 { font-size: 17px; }
+.step p { font-size: 12px; line-height: 1.7; }
+.step-caption { font-size: 8px; letter-spacing: .9px; }
+.integrity-band { border-radius: 12px; }
+
+html[data-theme="dark"] .lead { color: #a2afab; }
+html[data-theme="dark"] .metrics-row { box-shadow: 0 10px 30px rgba(0,0,0,.14); }
+html[data-theme="dark"] .journey-card { border-color: #333f42; background: radial-gradient(ellipse at 100% 0, rgba(227,33,43,.12), transparent 38%), linear-gradient(145deg, #1c282b 0%, #141d20 76%); }
+html[data-theme="dark"] .journey-card-state { border-color: #3a4749; background: rgba(255,255,255,.035); color: #aebbb5; }
+html[data-theme="dark"] .journey-card-state.is-complete i { background: #78c69e; }
+html[data-theme="dark"] .flow-step.is-done .flow-name { color: #bce1cb; }
+html[data-theme="dark"] .step { box-shadow: 0 8px 23px rgba(0,0,0,.13); }
+
+@media (max-width: 680px) {
+  .content { padding-top: 23px; }
+  .overview-kicker, .view-kicker { font-size: 8px; letter-spacing: .85px; }
+  .kicker-meta { font-size: 7px; }
+  .hero-label { font-size: 8px; letter-spacing: .75px; }
+  .hero-copy h1 { font-size: clamp(40px, 10vw, 54px); }
+  .lead { margin: 15px 0 18px; font-size: 13px; line-height: 1.68; }
+  .btn { min-height: 43px; font-size: 10px; }
+  .journey-card { min-height: 308px; padding: 21px 18px 16px; }
+  .journey-card h2 { font-size: 22px; }
+  .journey-card-state { margin-top: 9px; font-size: 7px; }
+  .journey-flow { margin-top: 20px; }
+  .flow-name { font-size: 9px; }
+  .flow-detail { font-size: 8px; }
+  .metrics-row { padding: 13px 10px; border-radius: 9px; }
+  .metric-intro strong { font-size: 12px; }
+  .metric-label { font-size: 7px; }
+  .metric strong { font-size: 21px; }
+  .metric small, .metric-source { font-size: 8px; }
+  .analytics-title-copy h2 { font-size: 24px; }
+  .analytics-title-copy p { font-size: 11px; }
+  .analytics-kpi span, .panel-overline { font-size: 7px; }
+  .analytics-kpi strong { font-size: 20px; }
+  .analytics-kpi small, .funnel-label, .funnel-conversion, .chart-footnote, .signal-row { font-size: 9px; }
+  .steps { gap: 9px; }
+  .step { min-height: 173px; padding: 14px; }
+  .step p { font-size: 11px; }
+  .step-caption { font-size: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journey-card-state.is-active i { animation: none; }
+}

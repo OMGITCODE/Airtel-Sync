@@ -65,29 +65,30 @@
         <div id="toast" aria-live="polite" role="status"></div>
 
         <section id="view-overview" class="view active" aria-labelledby="overview-title">
-          <div class="overview-kicker"><span class="kicker-line"></span> A CONTINUOUS DIGITAL BUSINESS JOURNEY <span class="kicker-meta">01 — 04</span></div>
+          <div class="overview-kicker"><span class="kicker-line"></span> ACQUISITION WORKSPACE <span class="kicker-meta">DISCOVER · VERIFY · ACTIVATE</span></div>
           <div class="overview-hero">
             <div class="hero-copy">
-              <div class="hero-label"><span class="pulse-mark"></span> BUSINESS ONBOARDING, REIMAGINED</div>
-              <h1 id="overview-title">A better start<br><em>for every business.</em></h1>
-              <p class="lead">From the first need to an active service, give every small business one clear path—with useful AI, transparent decisions and a human hand when it matters.</p>
+              <div class="hero-label"><span class="pulse-mark"></span> ONE BUSINESS · ONE ACCOUNTABLE JOURNEY</div>
+              <h1 id="overview-title">From first need<br><em>to active service.</em></h1>
+              <p class="lead">Bring local GenAI discovery, catalogue-backed recommendations, document verification and activation tracking into one clear workflow—with customer review at every decision.</p>
               <div class="hero-ctas">
                 <button id="start" class="btn primary">Start a new journey <span class="btn-arrow" aria-hidden="true">↗</span></button>
                 <button id="demo" class="btn quiet">Explore clinic demo <span class="btn-arrow" aria-hidden="true">↗</span></button>
               </div>
-              <div class="hero-assurance"><span class="assurance-check">✓</span> No real charges <span class="assurance-sep">·</span> Local GenAI <span class="assurance-sep">·</span> Your progress, preserved</div>
+              <div class="hero-assurance"><span class="assurance-check">✓</span> Local model <span class="assurance-sep">·</span> Synthetic records <span class="assurance-sep">·</span> Simulated checkout</div>
             </div>
 
-            <aside class="journey-card" aria-label="Journey workflow preview">
-              <div class="journey-card-head"><div><span class="card-overline">ONE CONNECTED FLOW</span><h2>Every step,<br>in context.</h2></div><span class="journey-stamp">OJ<span>.</span></span></div>
+            <aside class="journey-card" id="journey-card" aria-label="Journey control panel">
+              <div class="journey-card-head"><div><span class="card-overline">JOURNEY CONTROL PLANE</span><h2 id="journey-card-title">Four stages.<br>One connected journey.</h2></div><span class="journey-stamp">OJ<span>.</span></span></div>
+              <div class="journey-card-state" id="journey-card-state" aria-live="polite"><i></i> REFERENCE FLOW · 4 STAGES</div>
               <div class="journey-flow">
                 <div class="flow-line" aria-hidden="true"></div>
-                <div class="flow-step"><span class="flow-index">01</span><span class="flow-point"><i></i></span><span class="flow-name">Understand</span><span class="flow-detail">Business needs</span></div>
-                <div class="flow-step"><span class="flow-index">02</span><span class="flow-point"><i></i></span><span class="flow-name">Recommend</span><span class="flow-detail">Eligible services</span></div>
-                <div class="flow-step"><span class="flow-index">03</span><span class="flow-point"><i></i></span><span class="flow-name">Verify</span><span class="flow-detail">Human-reviewed</span></div>
-                <div class="flow-step"><span class="flow-index">04</span><span class="flow-point"><i></i></span><span class="flow-name">Activate</span><span class="flow-detail">Events you can track</span></div>
+                <div class="flow-step" data-journey-step="0"><span class="flow-index">01</span><span class="flow-point"><i></i></span><span class="flow-name">Discover</span><span class="flow-detail">Business needs</span></div>
+                <div class="flow-step" data-journey-step="1"><span class="flow-index">02</span><span class="flow-point"><i></i></span><span class="flow-name">Recommend</span><span class="flow-detail">Eligible services</span></div>
+                <div class="flow-step" data-journey-step="2"><span class="flow-index">03</span><span class="flow-point"><i></i></span><span class="flow-name">Verify</span><span class="flow-detail">Reviewed evidence</span></div>
+                <div class="flow-step" data-journey-step="3"><span class="flow-index">04</span><span class="flow-point"><i></i></span><span class="flow-name">Activate</span><span class="flow-detail">Tracked order</span></div>
               </div>
-              <div class="journey-card-foot"><span class="foot-orbit"><i></i></span><span>Built around the business.<br><b>Grounded in evidence.</b></span><span class="card-foot-mark">SYNC<br>2026</span></div>
+              <div class="journey-card-foot"><span class="foot-orbit"><i></i></span><span id="journey-card-footline">Create a journey to begin.<br><b>Every decision stays in context.</b></span><span class="card-foot-mark">LOCAL AI<br>· DATA</span></div>
             </aside>
           </div>
 
@@ -101,7 +102,7 @@
 
           <section class="analytics-console" aria-labelledby="analytics-title">
             <div class="analytics-heading">
-              <div class="analytics-title-copy"><span class="section-kicker">ACQUISITION INTELLIGENCE · SYNTHETIC COHORTS</span><h2 id="analytics-title">See where momentum builds.</h2><p>Explore the supplied lead cohort by segment and month. These are reference observations, not live Airtel performance.</p></div>
+              <div class="analytics-title-copy"><span class="section-kicker">ACQUISITION INTELLIGENCE · SYNTHETIC COHORTS</span><h2 id="analytics-title">Cohort performance.</h2><p>Explore supplied lead records by segment and month. These are reference observations, not live Airtel performance.</p></div>
               <div class="analytics-controls">
                 <label>Segment<select id="segment-filter" aria-label="Filter by business segment"><option value="all">All segments</option></select></label>
                 <label>Lead month<select id="period-filter" aria-label="Filter by lead month"><option value="all">Full quarter</option></select></label>

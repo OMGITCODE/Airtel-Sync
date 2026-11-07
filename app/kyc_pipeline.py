@@ -16,7 +16,7 @@ GSTIN_RE = re.compile(r'\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b')   # 15 ch
 UDYAM_RE = re.compile(r'UDYAM\s*-?\s*[A-Z]{2}\s*-?\s*\d{2}\s*-?\s*\d{7}')
 
 _CH = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-_CONF = {'O': '0', '0': 'O', 'I': '1', '1': 'I', 'T': '1I', 'B': '8', '8': 'B', 'S': '5', '5': 'S',
+_CONF = {'O': '0', '0': 'O', 'I': '1J', 'J': '1I', '1': 'IJ', 'T': '1I', 'B': '8', '8': 'B', 'S': '5', '5': 'S',
          'Z': '2', '2': 'Z', 'G': '6', '6': 'G', 'D': '0', 'Q': '0'}
 
 
@@ -108,14 +108,16 @@ def analyse(raw: bytes, registry: dict, today: date = FIXTURE_TODAY) -> dict:
     out['gstin_candidates'] = [c for c in GSTIN_RE.findall(up) if gstin_valid(c)]   # shape alone is not a read: must pass the checksum
     f = out['fields']
     if dt == 'gst_certificate':
-        m = re.search(r'GSTIN\s+([0-9A-Z ]{15,17})', up); f['trade_name'] = _g(t, 'Trade name')
+        m = re.search(r'GSTIN\s+([0-9A-Z ]{15,17})', up)
+        f['legal_name'] = _g(t, 'Legal name'); f['trade_name'] = _g(t, 'Trade name')
         f['gstin_raw'] = re.sub(r'\s', '', m.group(1)) if m else None
+        f['gstin_checksum_valid_as_read'] = gstin_valid(f['gstin_raw']) if f['gstin_raw'] else False
         if f['gstin_raw'] and not out['gstin_candidates']:
             fixed, how = repair_gstin(f['gstin_raw'], registry); f['gstin_read_quality'] = how
             if fixed: out['gstin_candidates'] = [fixed]
             else:
                 sug = suggest_gstin(f['gstin_raw'], f['trade_name'], registry)
-                if sug: out['gstin_suggestion'] = sug; out['flags'].append(f'CONFIRM_GSTIN_SUGGESTION: did you mean {mask(sug)}?')
+                if sug: out['gstin_suggestion'] = sug; out['flags'].append(f'CONFIRM_GSTIN_SUGGESTION: did you mean {mask(sug)}? human review required')
                 else: out['flags'].append('GSTIN_NOT_READABLE: human review required')
     elif dt == 'udyam_certificate':
         f['enterprise_name'] = _g(t, 'Enterprise name')

@@ -30,6 +30,13 @@ def test_ocr_confusion_is_repaired_only_when_registry_identifies_one_valid_recor
     assert repair_gstin(raw, {}) == (None, 'REPAIR_UNCONFIRMED')
 
 
+def test_i_j_ocr_confusion_is_registry_anchored():
+    original = next(value for value in GST if 'I' in value)
+    index = original.index('I')
+    raw = original[:index] + 'J' + original[index + 1:]
+    assert repair_gstin(raw, {original: GST[original]}) == (original, 'REPAIRED_REGISTRY_MATCH')
+
+
 def test_gstin_suggestion_is_trade_name_anchored_and_ambiguous_matches_are_rejected():
     original = next(iter(GST))
     record = GST[original]
@@ -78,6 +85,9 @@ def test_supplied_kyc_specimens_are_classified_and_review_flags_are_preserved(fi
         assert result['gstin_candidates'] and result['gstin_candidates'][0] in GST
     elif filename in {'K03_gst_certificate.png', 'K07_gst_certificate.png', 'K08_gst_certificate.png', 'K01_gst_certificate.png'}:
         assert result['gstin_candidates'] and result['gstin_candidates'][0] in GST
+        if filename == 'K07_gst_certificate.png':
+            assert 'Shri Physio Clinic' in result['fields']['legal_name']
+            assert 'Neelgiri Physio Clinic' in result['fields']['trade_name']
     elif filename == 'K01_udyam_certificate.png':
         assert any('UDYAM_NUMBER_NOT_READABLE' in flag for flag in result['flags'])
     elif filename == 'K11_address_proof.png':

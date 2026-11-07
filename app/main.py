@@ -1,8 +1,8 @@
 """OneJourney hackathon prototype. All customer data/registries fictional. No production telecom/payment integrations."""
 from __future__ import annotations
-import csv, io, json, logging, os, re, sqlite3, uuid
+import asyncio, csv, io, json, logging, os, re, sqlite3, uuid
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
@@ -15,6 +15,7 @@ from .genai import configured_model, create_client, local_runtime_status, reason
 from .kyc_pipeline import analyse as analyse_kyc_document, gstin_valid
 from .needs import ALLOWED_NEEDS, NEED_ALIASES, NEED_LABELS, NEED_SKUS
 from .recommender import build_candidates
+from .propensity import handoff_priority
 
 try:
  from dotenv import load_dotenv
@@ -33,6 +34,7 @@ DEMO_GST = next(x for x in GST.values() if x['status']=='Active')
 DEMO_UDY = next((x for x in UDYAM.values() if x['enterprise_name'].strip().lower()==DEMO_GST['legal_name'].strip().lower()), next(iter(UDYAM.values())))
 app=FastAPI(title='OneJourney', version='1.0.0', description='Competition prototype. Synthetic registries and simulated telecom activation.')
 app.mount('/static', StaticFiles(directory=str(ROOT/'static')), name='static')
+RETENTION_DAYS = 7
 
 def con():
  c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
@@ -54,6 +56,47 @@ def init():
 init()
 
 def now(): return datetime.now(timezone.utc).isoformat()
+
+def erase_journey(c, jid):
+ """Remove a journey and every row linked to it, including event/receipt children."""
+ order_ids=[r['id'] for r in c.execute('SELECT id FROM orders WHERE journey_id=?',(jid,)).fetchall()]
+ quote_ids=[r['id'] for r in c.execute('SELECT id FROM quotes WHERE journey_id=?',(jid,)).fetchall()]
+ if order_ids:
+  marks=','.join('?' for _ in order_ids)
+  c.execute(f'DELETE FROM order_events WHERE order_id IN ({marks})',order_ids)
+ if quote_ids:
+  marks=','.join('?' for _ in quote_ids)
+  c.execute(f'DELETE FROM receipts WHERE quote_id IN ({marks})',quote_ids)
+ for table in ('quotes','consents','documents','kyc','orders','handoffs','advisor_messages'):
+  c.execute(f'DELETE FROM {table} WHERE journey_id=?',(jid,))
+ c.execute('DELETE FROM journeys WHERE id=?',(jid,))
+
+def prune_expired_journeys(reference_time=None):
+ """Delete all journey data seven days after journey creation; return the count."""
+ cutoff=((reference_time or datetime.now(timezone.utc))-timedelta(days=RETENTION_DAYS)).isoformat()
+ with con() as c:
+  expired=[r['id'] for r in c.execute('SELECT id FROM journeys WHERE created_at < ?',(cutoff,)).fetchall()]
+  for jid in expired: erase_journey(c,jid)
+ return len(expired)
+
+async def retention_sweeper():
+ while True:
+  await asyncio.sleep(3600)
+  prune_expired_journeys()
+
+@app.on_event('startup')
+async def start_retention_sweeper():
+ prune_expired_journeys()
+ app.state.retention_task=asyncio.create_task(retention_sweeper())
+
+@app.on_event('shutdown')
+async def stop_retention_sweeper():
+ task=getattr(app.state,'retention_task',None)
+ if task:
+  task.cancel()
+  try: await task
+  except asyncio.CancelledError: pass
+
 def uid(prefix): return prefix+'_'+uuid.uuid4().hex[:12]
 def j(x): return json.dumps(x,ensure_ascii=False)
 def parse(x): return json.loads(x) if isinstance(x,str) else x
@@ -144,7 +187,7 @@ def privacy():return FileResponse(ROOT/'static'/'privacy.html')
 @app.get('/api/health')
 def health():
  local=local_runtime_status()
- return {'ok':True,'products':len(CAT),'leads':len(LEADS),'mock_gstin':len(GST),'mock_udyam':len(UDYAM),'advisor':{'provider':'Ollama local','status':local['status'],'model':configured_model(),'reasoning_effort':reasoning_effort()}}
+ return {'ok':True,'products':len(CAT),'leads':len(LEADS),'mock_gstin':len(GST),'mock_udyam':len(UDYAM),'retention_days':RETENTION_DAYS,'advisor':{'provider':'Ollama local','status':local['status'],'model':configured_model(),'reasoning_effort':reasoning_effort()}}
 @app.get('/api/catalogue')
 def catalogue():return list(CAT.values())
 @app.get('/api/needs')
@@ -190,7 +233,7 @@ def metrics(segment:str='all',period:str='all'):
  def numeric(records,key):return [float(x[key]) for x in records if x.get(key,'').replace('.','',1).isdigit()]
  durations=numeric(activated,'days_lead_to_activation')
  calls=numeric(activated,'customer_follow_up_calls')
- costs=numeric(activated,'acquisition_cost_inr')
+ costs=numeric(cohort,'acquisition_cost_inr')
  customer_scores=numeric(activated,'nps_score')
  churn=[x.get('churned_within_6_months')=='1' for x in activated if x.get('churned_within_6_months') in ('0','1')]
  months=[]
@@ -199,7 +242,7 @@ def metrics(segment:str='all',period:str='all'):
   monthly_activated=sum(x.get('outcome')=='Activated' for x in monthly)
   months.append({'period':month,'leads':len(monthly),'activated':monthly_activated,'activation_pct':round(monthly_activated*100/len(monthly),2) if monthly else 0})
  needs_assessed=funnel[2]['count'];quote_accepted=funnel[3]['count']
- return {'leads':len(cohort),'activated':len(activated),'activation_pct':round(len(activated)/len(cohort)*100,2) if cohort else 0,'quote_accepted':quote_accepted,'needs_assessed':needs_assessed,'quote_accept_pct':round(quote_accepted*100/needs_assessed,2) if needs_assessed else 0,'funnel':funnel,'bottleneck':bottleneck,'trend':months,'avg_activation_days':round(sum(durations)/len(durations),1) if durations else None,'avg_follow_up_calls':round(sum(calls)/len(calls),1) if calls else None,'avg_acquisition_cost_inr':round(sum(costs)/len(costs)) if costs else None,'avg_customer_score':round(sum(customer_scores)/len(customer_scores),1) if customer_scores else None,'churn_pct':round(sum(churn)*100/len(churn),1) if churn else None,'segments':['all']+segment_options,'periods':['all']+period_options,'segment':segment,'period':period,'source':'Computed from supplied synthetic challenge records. Not real Airtel performance.'}
+ return {'leads':len(cohort),'activated':len(activated),'activation_pct':round(len(activated)/len(cohort)*100,2) if cohort else 0,'quote_accepted':quote_accepted,'needs_assessed':needs_assessed,'quote_accept_pct':round(quote_accepted*100/needs_assessed,2) if needs_assessed else 0,'funnel':funnel,'bottleneck':bottleneck,'trend':months,'avg_activation_days':round(sum(durations)/len(durations),1) if durations else None,'avg_follow_up_calls':round(sum(calls)/len(calls),1) if calls else None,'avg_acquisition_cost_inr':round(sum(costs)/len(activated)) if costs and activated else None,'avg_customer_score':round(sum(customer_scores)/len(customer_scores),1) if customer_scores else None,'churn_pct':round(sum(churn)*100/len(churn),1) if churn else None,'segments':['all']+segment_options,'periods':['all']+period_options,'segment':segment,'period':period,'source':'Computed from supplied synthetic challenge records. Not real Airtel performance.'}
 
 @app.post('/api/journeys')
 def newjourney(b:CreateJourney):
@@ -218,6 +261,13 @@ def journey(jid:str):
   q['receipt']=parse(receipt['receipt']) if receipt else None
  if k:k['reasons']=parse(k['reasons'])
  return {**r,'quotes':quotes,'kyc':k,'orders':orders}
+
+@app.delete('/api/journeys/{jid}/data')
+def delete_journey_data(jid:str):
+ with con() as c:
+  if not row(c,'SELECT id FROM journeys WHERE id=?',(jid,)):raise HTTPException(404,'Journey not found or already deleted')
+  erase_journey(c,jid)
+ return {'deleted':True,'journey_id':jid,'message':'Journey profile, documents, consent, quotes, messages, handoffs, and simulated order data were deleted.'}
 @app.patch('/api/journeys/{jid}/profile')
 def update_profile(jid:str,b:ProfileUpdate):
  x=getjourney(jid);p={**x['profile'],**b.profile}
@@ -756,10 +806,11 @@ def verify(b:VerifyKyc):
    recognized_gstin={value.upper() for doc in confirmed_docs for value in doc.get('gstin_candidates',[])}
    recognized_udyam={canonical_udyam(value) for doc in confirmed_docs for value in doc.get('udyam_candidates',[])}-{None}
    suggestions={doc.get('gstin_suggestion') for doc in confirmed_docs if doc.get('gstin_suggestion')}
-   if gstin and gstin in suggestions:recognized_gstin.add(gstin)
+   accepted_suggestion=bool(gstin and gstin in suggestions)
+   if accepted_suggestion:
+    reasons.append('The selected GSTIN was suggested from a checksum-invalid document value; the certificate and registry differ, so human review is required')
    for doc in confirmed_docs:
     for flag in doc.get('flags',[]):
-     if flag.startswith('CONFIRM_GSTIN_SUGGESTION') and gstin and gstin==doc.get('gstin_suggestion'):continue
      if flag.startswith('UDYAM_NUMBER_NOT_READABLE') and udyam and u:continue
      reasons.append(flag)
    if not ((gstin and gstin in recognized_gstin) or (udyam and udyam in recognized_udyam)):
@@ -767,6 +818,12 @@ def verify(b:VerifyKyc):
    doc_names={normalized_name(value) for doc in confirmed_docs for key,value in (doc.get('fields') or {}).items()
     if key in ('trade_name','enterprise_name','billed_to','business') and value}
    if len(doc_names)>1:reasons.append('Business names differ across uploaded documents; human review required')
+   if g:
+    for doc in confirmed_docs:
+     if doc.get('doc_type')!='gst_certificate':continue
+     legal_name=(doc.get('fields') or {}).get('legal_name')
+     if legal_name and normalized_name(legal_name)!=normalized_name(g['legal_name']):
+      reasons.append('GST certificate legal name differs from the selected GST registry record; human review is required')
   quote=row(c,'SELECT * FROM quotes WHERE journey_id=? AND accepted=1 ORDER BY version DESC',(b.journey_id,))
   if quote:
    selected=[x['product_id'] for x in parse(quote['items'])]
@@ -823,3 +880,7 @@ def handoff(b:HandoffInput):
 @app.get('/api/partners/handoffs')
 def handoffs():
  with con() as c: return [dict(r) for r in c.execute('SELECT id,reason,source,status,created_at FROM handoffs ORDER BY created_at DESC LIMIT 30')]
+
+@app.get('/api/partners/propensity')
+def partner_propensity():
+ return handoff_priority(limit=8)

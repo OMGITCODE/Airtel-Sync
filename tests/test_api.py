@@ -2,12 +2,13 @@ import os
 from pathlib import Path
 import shutil
 from tempfile import gettempdir
+from datetime import datetime, timedelta, timezone
 import pytest
 os.environ['ONEJOURNEY_DB']=str(Path(gettempdir())/'onejourney_pytest.sqlite3')
 try: Path(os.environ['ONEJOURNEY_DB']).unlink()
 except FileNotFoundError: pass
 from fastapi.testclient import TestClient
-from app.main import app, CAT, GST, UDYAM, check_bundle, calculate, safe_profile, mask_kyc_value
+from app.main import app, CAT, GST, UDYAM, check_bundle, calculate, safe_profile, mask_kyc_value, con, prune_expired_journeys
 client=TestClient(app)
 KYC_FIXTURES=Path(__file__).parents[1]/'app'/'data'/'kyc_documents'
 
@@ -28,7 +29,40 @@ def quote(jid,items):
 
 def test_health():
     assert client.get('/api/health').json()['products']==25
-    assert client.get('/api/metrics').json()['activated']==368
+    metrics=client.get('/api/metrics').json()
+    assert metrics['activated']==368
+    assert metrics['avg_acquisition_cost_inr']==15053
+    assert client.get('/api/health').json()['retention_days']==7
+
+def test_partner_handoff_propensity_reports_heldout_auc_without_contact_details():
+    result=client.get('/api/partners/propensity').json()
+    assert result['synthetic'] is True
+    assert result['rows']==5000 and result['training_rows']+result['heldout_rows']==5000
+    assert result['heldout_rows']==1000 and 0<=result['heldout_auc']<=1
+    assert result['positive_label']=='Activated'
+    assert result['prospects'] and len(result['prospects'])<=8
+    assert all({'lead_id','lead_source','business_type','city','stage_reached','propensity_score'}<=set(row) for row in result['prospects'])
+    assert all('contact_name' not in row and 'gstin' not in row for row in result['prospects'])
+
+def test_delete_my_data_removes_journey_and_linked_records():
+    jid=new()
+    with con() as db:
+        db.execute('INSERT INTO advisor_messages(journey_id,role,content,created_at) VALUES(?,?,?,?)',(jid,'user','synthetic test',datetime.now(timezone.utc).isoformat()))
+        db.execute('INSERT INTO consents(id,journey_id,purpose,version,created_at) VALUES(?,?,?,?,?)',('consent_test',jid,'test','1',datetime.now(timezone.utc).isoformat()))
+    deleted=client.delete(f'/api/journeys/{jid}/data')
+    assert deleted.status_code==200 and deleted.json()['deleted'] is True
+    assert client.get(f'/api/journeys/{jid}').status_code==404
+    with con() as db:
+        assert db.execute('SELECT 1 FROM advisor_messages WHERE journey_id=?',(jid,)).fetchone() is None
+        assert db.execute('SELECT 1 FROM consents WHERE journey_id=?',(jid,)).fetchone() is None
+    assert client.delete(f'/api/journeys/{jid}/data').status_code==404
+
+def test_journeys_expire_after_seven_days():
+    jid=new()
+    expired_at=(datetime.now(timezone.utc)-timedelta(days=8)).isoformat()
+    with con() as db:db.execute('UPDATE journeys SET created_at=? WHERE id=?',(expired_at,jid))
+    assert prune_expired_journeys()==1
+    assert client.get(f'/api/journeys/{jid}').status_code==404
 
 def test_profile_rejects_invalid_values_instead_of_coercing_them():
     jid=new(); profile(jid)
@@ -215,3 +249,38 @@ def test_four_document_specimen_kyc_verifies_only_after_review():
         'legal_name':GST[gstin]['legal_name'],'require_all_documents':True})
     assert verification.status_code==200,verification.text
     assert verification.json()['status']=='VERIFIED',verification.text
+
+@pytest.mark.skipif(shutil.which('tesseract') is None, reason='Tesseract OCR executable is not installed on this machine')
+@pytest.mark.parametrize(('applicant','expected'),[
+    ('K01','ACTION_REQUIRED'),('K02','VERIFIED'),('K03','VERIFIED'),('K04','ACTION_REQUIRED'),
+    ('K05','ACTION_REQUIRED'),('K06','REVIEW_REQUIRED'),('K07','REVIEW_REQUIRED'),('K08','VERIFIED'),
+    ('K09','VERIFIED'),('K10','VERIFIED'),('K11','ACTION_REQUIRED'),('K12','VERIFIED'),
+])
+def test_all_twelve_supplied_kyc_applicants_keep_expected_decision(applicant,expected):
+    jid=new()
+    assert client.post('/api/kyc/consent',data={'journey_id':jid,'accepted':'true'}).status_code==200
+    extracted=[]
+    for image in sorted(KYC_FIXTURES.glob(f'{applicant}_*.png')):
+        response=client.post('/api/kyc/documents',data={'journey_id':jid},files={'file':(image.name,image.read_bytes(),'image/png')})
+        assert response.status_code==200,(applicant,image.name,response.text)
+        document=response.json()['extracted'];extracted.append(document)
+        assert client.post(f"/api/kyc/documents/{response.json()['document_id']}/confirm").status_code==200
+    gst_document=next((doc for doc in extracted if doc.get('doc_type')=='gst_certificate'),{})
+    gstin=gst_document.get('gst_suggestion') or gst_document.get('gstin_suggestion') or next(
+        (value for doc in extracted for value in doc.get('gstin_candidates',[])), '')
+    # K04's blurred GST certificate is intentionally unreadable; its Udyam number remains checkable.
+    udyam=next((value for doc in extracted for value in doc.get('udyam_candidates',[])), '')
+    record=GST.get(gstin,{})
+    verification=client.post('/api/kyc/verify',json={'journey_id':jid,'gstin':gstin,
+        'udyam_number':udyam,'legal_name':record.get('legal_name',''),'require_all_documents':True})
+    assert verification.status_code==200,(applicant,verification.text)
+    result=verification.json()
+    assert result['status']==expected,(applicant,result)
+    if applicant=='K06':
+        assert gst_document.get('fields',{}).get('gstin_checksum_valid_as_read') is False,gst_document
+        assert any('checksum-invalid document value' in reason for reason in result['reasons']),result
+    if applicant=='K07':
+        assert any('legal name differs from the selected GST registry record' in reason for reason in result['reasons']),result
+    if applicant=='K10':
+        assert not gst_document.get('gstin_suggestion'),gst_document
+        assert gst_document.get('gstin_candidates'),gst_document

@@ -1,19 +1,19 @@
 # OneJourney privacy note
 
-OneJourney is a local hackathon demonstration. Use only the fictional challenge records and specimen documents included with the project. Never upload a real person's identity document or real customer information.
+**Local hackathon demonstration · synthetic challenge records only · updated 7 November 2026**
 
-## What the prototype processes
+Do not upload real identity documents or customer information. OneJourney is not an Airtel production service and has no production authentication.
 
-- The local Ollama model receives the conversation after common email, Indian phone, GSTIN, and Udyam patterns are redacted. Profile facts stay provisional until the owner confirms them.
-- Document upload is available only after the owner accepts the stated verification purpose. OCR runs on the same computer through OpenCV and Tesseract. The app compares extracted or typed values with the included mock registries; it does not contact a government service.
-- The included lead, catalogue, registry, and specimen-document files are described by the supplied data pack as fictional challenge data. Lead analysis returns aggregates rather than individual records.
+## What is processed
 
-## Storage and retention
+KYC upload requires purpose-specific consent. The image is processed in memory by local OpenCV/Tesseract OCR and is not saved. The app stores the extracted document fields, masked preview, confirmation state, entered registry identifiers, consent, profile, quote, chat history, handoff and simulated order events in its local SQLite database. The database is not encrypted at rest.
 
-Journey profiles, entered registry identifiers, consent records, OCR results, and order simulations are saved in the local SQLite database configured by `ONEJOURNEY_DB` (by default, `onejourney.sqlite3`). Records remain there until that database is deleted; the prototype has no automatic expiry. The database is not encrypted at rest. OCR text previews mask common direct identifiers in the interface, and identifier inputs are masked unless the reviewer chooses to reveal them. The local model does not receive KYC fields.
+Only advisor chat goes to the configured local Ollama model; common email, phone, GSTIN and Udyam patterns are redacted first. KYC fields never go to the model. The deterministic questionnaire and catalogue recommender work without Ollama. WhatsApp preview is simulated and uses the same local advisor route. No government, payment, Airtel or other hosted service is contacted.
 
-To remove the prototype's saved journeys and KYC records, stop the app and delete the configured SQLite database file. This does not delete the challenge dataset files in `app/data/`.
+## Retention and deletion
+
+Journey-linked records expire **7 days after journey creation**. The app removes expired journeys at startup and checks hourly while running. Use **Delete my data** in the app to immediately erase the active journey’s profile, extracted KYC results, consent, quotes, chat, handoffs and simulated order history. This action does not delete the supplied synthetic challenge dataset in `app/data/`.
 
 ## Limits
 
-This is not a production onboarding, identity-verification, payment, or telecom service. Registry checks and checkout are simulated. The project has no production authentication or access control. Keep the server on a trusted local device and do not expose it to the public internet. Review the competition terms before redistributing the supplied challenge data outside this repository.
+Registry, pricing, eligibility and activation are simulations. Keep the app bound to localhost and do not expose it to the public internet. The supplied data pack describes its sample businesses and identifiers as fictional; the GitHub repository remains private because the competition materials do not grant permission for public redistribution. Review applicable competition terms before sharing the supplied data elsewhere.

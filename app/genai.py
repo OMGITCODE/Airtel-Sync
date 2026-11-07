@@ -124,7 +124,7 @@ def ollama_base_url() -> str | None:
     if value.endswith("/v1"):
         value = value[:-3]
     parsed = urlsplit(value)
-    local_hosts = {"localhost", "127.0.0.1", "::1", "host.docker.internal"}
+    local_hosts = {"localhost", "127.0.0.1", "::1", "host.docker.internal", "ollama"}
     if parsed.scheme != "http" or parsed.hostname not in local_hosts or parsed.username or parsed.password:
         return None
     if parsed.path not in ("", "/") or parsed.query or parsed.fragment:

@@ -191,6 +191,20 @@ h1, h2, h3 { letter-spacing: -.035em; }
 .footer-brand strong { color: #384244; font-size: 10px; font-weight: 750; letter-spacing: -.5px; }
 .footer-product { margin-left: 3px; color: #9aa19f; font-size: 7px; font-weight: 650; letter-spacing: .85px; }
 .footer-disclaimer { color: #8d9694; font-size: 8px; text-align: right; }
+.app-footer .delete-data { flex: 0 0 auto; color: #7f8985; font-size: 8px; }
+.app-footer .delete-data:hover:not(:disabled) { color: #a93439; text-decoration: underline; }
+.app-footer .delete-data:disabled { cursor: not-allowed; opacity: .55; }
+.handoff-propensity { margin-top: 17px; padding-top: 15px; border-top: 1px solid #e7ebe6; }
+.propensity-heading { display: flex; align-items: center; justify-content: space-between; gap: 9px; }
+.propensity-heading b, .propensity-heading small { display: block; }
+.propensity-heading b { color: #3b4644; font-size: 10px; }
+.propensity-heading small { margin-top: 3px; color: #929b97; font-size: 7px; }
+.handoff-propensity > p { margin: 8px 0 10px; color: #7c8782; font-size: 8px; line-height: 1.6; }
+.propensity-list { display: grid; gap: 6px; }
+.propensity-lead { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 9px; padding: 8px 9px; border: 1px solid #e8ebe7; border-radius: 3px; background: #fafbf9; }
+.propensity-lead b { color: #48534f; font-size: 8px; }
+.propensity-lead small { color: #89938f; font-size: 7px; }
+.propensity-score { grid-column: 2; grid-row: 1 / span 2; color: #5d8b6a; font-size: 10px; font-weight: 750; }
 
 /* Journey screens */
 .view-kicker { margin: 2px 0 13px; }
@@ -225,7 +239,17 @@ h1, h2, h3 { letter-spacing: -.035em; }
 .ai-status { margin: 0 0 10px; padding: 9px 10px; border: 1px solid #e4e9e4; border-radius: 4px; background: #f7f8f5; color: #74807d; font-size: 9px; line-height: 1.65; }
 .ai-status b { color: #43504d; }
 .ai-status code { padding: 2px 4px; border-radius: 2px; background: #ecefeb; color: #5a6461; font-size: 8px; }
-.conversation-label { display: flex; justify-content: space-between; margin: 4px 1px 8px; color: #a1a9a6; font-size: 7px; font-weight: 750; letter-spacing: .9px; }
+.guided-fallback { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 11px; padding: 10px 11px; border: 1px solid #dfe5df; border-left: 2px solid #6c9a7a; border-radius: 4px; background: #f7f9f6; }
+.guided-fallback > div { min-width: 0; }
+.fallback-kicker { display: block; margin-bottom: 3px; color: #799084; font-size: 6px; font-weight: 750; letter-spacing: .85px; }
+.guided-fallback b { display: block; color: #3b4743; font-size: 9px; }
+.guided-fallback p { margin: 3px 0 0; color: #77817d; font-size: 8px; line-height: 1.5; }
+.guided-fallback .btn { flex: 0 0 auto; white-space: nowrap; }
+.conversation-label { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin: 4px 1px 8px; color: #a1a9a6; font-size: 7px; font-weight: 750; letter-spacing: .9px; }
+.chat-mode-toggle { padding: 5px 7px; border: 1px solid #e1e6e1; border-radius: 3px; background: #fff; color: #737e79; font-size: 7px; font-weight: 650; letter-spacing: 0; }
+.chat-mode-toggle[aria-pressed="true"] { border-color: #a9c4b1; background: #eff6f0; color: #466e52; }
+.whatsapp-mode .msg.user { border-color: #c4dfc0; border-radius: 9px 9px 2px 9px; background: #e6f5e1; color: #344239; }
+.whatsapp-mode .msg:not(.user) { border-radius: 9px 9px 9px 2px; }
 .messages { display: flex; min-height: 200px; max-height: 310px; flex: 1; flex-direction: column; gap: 10px; overflow-y: auto; padding: 5px 1px 9px; }
 .msg { max-width: 88%; padding: 10px 12px; border: 1px solid #e6e9e5; border-radius: 5px 5px 5px 1px; background: #f7f8f5; color: #4f5a58; font-size: 10px; line-height: 1.75; white-space: pre-wrap; }
 .msg.user { align-self: flex-end; border-color: #313d40; border-radius: 5px 5px 1px 5px; background: #263236; color: #f4f5f1; }
@@ -653,7 +677,17 @@ html[data-theme="dark"] .checkout-summary, html[data-theme="dark"] .ocr-result p
 html[data-theme="dark"] .ai-status, html[data-theme="dark"] .msg,
 html[data-theme="dark"] .trace-chip, html[data-theme="dark"] .evidence-card,
 html[data-theme="dark"] .rec-card .pill, html[data-theme="dark"] .consent-card,
-html[data-theme="dark"] .empty { border-color: #344043; background-color: #202a2d; }
+html[data-theme="dark"] .empty, html[data-theme="dark"] .guided-fallback { border-color: #344043; background-color: #202a2d; }
+html[data-theme="dark"] .guided-fallback { border-left-color: #79a487; }
+html[data-theme="dark"] .guided-fallback b { color: #e0e7e3; }
+html[data-theme="dark"] .guided-fallback p { color: #aab6b1; }
+html[data-theme="dark"] .chat-mode-toggle { border-color: #344043; background: #192124; color: #c3cec8; }
+html[data-theme="dark"] .chat-mode-toggle[aria-pressed="true"] { border-color: #42654c; background: #223529; color: #a8d3b3; }
+html[data-theme="dark"] .whatsapp-mode .msg.user { border-color: #42654c; background: #294533; color: #e4f1e6; }
+html[data-theme="dark"] .app-footer .delete-data { color: #aab6b1; }
+html[data-theme="dark"] .handoff-propensity { border-color: #303b3e; }
+html[data-theme="dark"] .propensity-heading b { color: #e0e7e3; }
+html[data-theme="dark"] .propensity-lead { border-color: #344043; background: #192124; }
 html[data-theme="dark"] .ai-status code { background: #2c3739; color: #d3ddd8; }
 html[data-theme="dark"] .rec-card .pill.accent { border-color: #684044; background: #392528; color: #ff9ba0; }
 html[data-theme="dark"] .rec-card.good { border-color: #684044; }
@@ -979,3 +1013,5 @@ html[data-theme="dark"] .step { box-shadow: 0 8px 23px rgba(0,0,0,.13); }
   .journey-card-state.is-active i { animation: none; }
   .journey-art img { animation: none; }
 }
+
+.field-grid .check input[type=checkbox] { width: 14px; min-height: 14px; padding: 0; margin: 2px 0 0; }

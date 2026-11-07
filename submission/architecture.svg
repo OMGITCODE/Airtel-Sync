@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">OneJourney local-first prototype architecture</title>
+  <desc id="desc">A browser calls a FastAPI journey service. Local Ollama handles chat only; deterministic rules handle recommendations, quotes and orders. Local OCR validates documents against synthetic registries. SQLite journey data expires after seven days. Aggregated synthetic lead data powers analytics and an experimental held-out propensity model for human partner handoff.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#e54349"/></marker>
+    <marker id="arrow-muted" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#74817f"/></marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#0b1417" flood-opacity=".07"/></filter>
+    <style>
+      .bg{fill:#f4f5f1}.title{font:700 34px Inter,Segoe UI,sans-serif;fill:#1e292d;letter-spacing:-.7px}.sub{font:15px Inter,Segoe UI,sans-serif;fill:#687471}.box{fill:#fff;stroke:#dce2dc;stroke-width:1.5;filter:url(#shadow)}.dark{fill:#202a2d;stroke:#202a2d}.red{fill:#fff6f5;stroke:#efc8c8}.green{fill:#f1f7f2;stroke:#c9ddce}.over{font:700 11px Inter,Segoe UI,sans-serif;letter-spacing:1.5px;fill:#9a5455}.label{font:650 18px Inter,Segoe UI,sans-serif;fill:#273337}.body{font:13px Inter,Segoe UI,sans-serif;fill:#687471}.light{fill:#edf1ed}.white-label{font:650 18px Inter,Segoe UI,sans-serif;fill:#f5f6f2}.white-body{font:13px Inter,Segoe UI,sans-serif;fill:#aab6b1}.route{fill:none;stroke:#e54349;stroke-width:2.4;marker-end:url(#arrow)}.local{fill:none;stroke:#74817f;stroke-width:2;stroke-dasharray:7 6;marker-end:url(#arrow-muted)}.tag{font:700 10px Inter,Segoe UI,sans-serif;letter-spacing:1px;fill:#697572}
+    </style>
+  </defs>
+  <rect class="bg" width="1600" height="1000"/>
+  <text class="over" x="80" y="68">ONEJOURNEY · AIRTEL SYNC 2026</text>
+  <text class="title" x="80" y="119">Local-first acquisition, verification and assisted activation</text>
+  <text class="sub" x="80" y="151">Every decision path is bounded: the model helps with discovery; deterministic services decide eligibility, KYC state and order transitions.</text>
+
+  <!-- Customer and service plane -->
+  <rect class="box" x="80" y="218" width="300" height="145" rx="13"/>
+  <text class="over" x="108" y="251">CUSTOMER CHANNEL</text>
+  <text class="label" x="108" y="286">Browser experience</text>
+  <text class="body" x="108" y="315">Advisor · questionnaire · quote</text>
+  <text class="body" x="108" y="339">Consent · KYC · journey tracker</text>
+
+  <rect class="box dark" x="490" y="205" width="375" height="175" rx="13"/>
+  <text class="over" x="520" y="240">APPLICATION API · FASTAPI</text>
+  <text class="white-label" x="520" y="277">Journey service</text>
+  <text class="white-body" x="520" y="307">Profile validation · tool routing · audit trail</text>
+  <text class="white-body" x="520" y="333">Consent gates · review flags · simulated fulfilment</text>
+  <text class="white-body" x="520" y="358">No production network or payment integrations</text>
+
+  <rect class="box green" x="1005" y="200" width="270" height="180" rx="13"/>
+  <text class="over" x="1032" y="236">LOCAL GENAI</text>
+  <text class="label" x="1032" y="273">Ollama · Qwen3</text>
+  <text class="body" x="1032" y="303">Chat only · common IDs redacted</text>
+  <text class="body" x="1032" y="328">No KYC fields or lead rows sent</text>
+  <text class="body" x="1032" y="353">Questionnaire works without model</text>
+
+  <rect class="box red" x="1305" y="200" width="215" height="180" rx="13"/>
+  <text class="over" x="1331" y="236">NO MODEL PATH</text>
+  <text class="label" x="1331" y="273">Guided profile</text>
+  <text class="body" x="1331" y="303">Fixed recommender</text>
+  <text class="body" x="1331" y="328">Catalogue + eligibility</text>
+  <text class="body" x="1331" y="353">Instant local response</text>
+
+  <path class="route" d="M380 291H480"/>
+  <path class="local" d="M865 275H995"/>
+  <path class="route" d="M820 380V440H1412V390"/>
+  <text class="tag" x="896" y="260">OPTIONAL · BOUNDED TOOLS</text>
+  <text class="tag" x="1260" y="428">GUIDED QUESTIONNAIRE</text>
+
+  <!-- Evidence and decision plane -->
+  <rect class="box" x="115" y="478" width="395" height="220" rx="13"/>
+  <text class="over" x="145" y="515">DOCUMENT EVIDENCE</text>
+  <text class="label" x="145" y="551">Local OCR + quality gates</text>
+  <text class="body" x="145" y="582">OpenCV blur check · deskew · Tesseract</text>
+  <text class="body" x="145" y="607">GST checksum · legal-name comparison</text>
+  <text class="body" x="145" y="632">Udyam match · date checks · human review</text>
+  <text class="body" x="145" y="667">Images processed in memory; extracted fields saved</text>
+
+  <rect class="box red" x="575" y="478" width="260" height="220" rx="13"/>
+  <text class="over" x="605" y="515">SYNTHETIC REGISTRIES</text>
+  <text class="label" x="605" y="551">GST + Udyam</text>
+  <text class="body" x="605" y="582">Fictional challenge records</text>
+  <text class="body" x="605" y="607">Registry-backed correction only</text>
+  <text class="body" x="605" y="632">Fuzzy suggestion ⇒ review required</text>
+  <text class="body" x="605" y="667">Not live government lookups</text>
+
+  <rect class="box" x="895" y="478" width="290" height="220" rx="13"/>
+  <text class="over" x="925" y="515">COMMERCIAL RULES</text>
+  <text class="label" x="925" y="551">Catalog recommender</text>
+  <text class="body" x="925" y="582">Eligibility · itemized quote</text>
+  <text class="body" x="925" y="607">Customer-chosen recovery</text>
+  <text class="body" x="925" y="632">Order lifecycle + tracker</text>
+  <text class="body" x="925" y="667">Same rules for chat tools and UI</text>
+
+  <rect class="box green" x="1245" y="478" width="275" height="220" rx="13"/>
+  <text class="over" x="1275" y="515">JOURNEY STORAGE</text>
+  <text class="label" x="1275" y="551">Local SQLite</text>
+  <text class="body" x="1275" y="582">Journeys · consent · OCR</text>
+  <text class="body" x="1275" y="607">Messages · quotes · events</text>
+  <text class="body" x="1275" y="632">Auto-delete after 7 days</text>
+  <text class="body" x="1275" y="667">Delete my data · immediate erase</text>
+
+  <path class="route" d="M615 380V435H313V468"/>
+  <path class="route" d="M650 380V468"/>
+  <path class="route" d="M740 380V435H1040V468"/>
+  <path class="local" d="M865 360H875V398H1500V468"/>
+  <path class="local" d="M510 587H565"/>
+  <path class="local" d="M835 587H885"/>
+
+  <!-- analytics / assisted handoff -->
+  <rect class="box dark" x="240" y="778" width="535" height="150" rx="13"/>
+  <text class="over" x="273" y="815">SYNTHETIC LEAD DATA · LOCAL ANALYTICS</text>
+  <text class="white-label" x="273" y="852">Funnel · cohort · logistic propensity</text>
+  <text class="white-body" x="273" y="883">80/20 fixed split · held-out AUC · no contact details exposed</text>
+  <rect class="box" x="855" y="778" width="505" height="150" rx="13"/>
+  <text class="over" x="888" y="815">HUMAN PARTNER HANDOFF</text>
+  <text class="label" x="888" y="852">Assisted close · site survey · installation</text>
+  <text class="body" x="888" y="883">Only approved journey context is shared; score is a queue aid, not a decision</text>
+  <path class="local" d="M1185 587H1460V735H505V768"/>
+  <path class="route" d="M775 853H845"/>
+  <text class="tag" x="786" y="837">HUMAN REVIEW + CONSENT</text>
+
+  <text class="tag" x="80" y="968">SOLID RED · API / CUSTOMER FLOW</text>
+  <path class="route" d="M320 963H370"/>
+  <text class="tag" x="420" y="968">DASHED GREY · LOCAL SERVICE / DATA FLOW</text>
+  <path class="local" d="M695 963H745"/>
+  <text class="tag" x="925" y="968">ALL IDENTITIES + LEAD RECORDS ARE FICTIONAL</text>
+</svg>

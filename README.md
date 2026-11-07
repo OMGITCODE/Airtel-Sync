@@ -16,6 +16,17 @@ The interface background is an original, lightweight Canvas animation inspired b
 
 Requirements: Python 3.11+, the Tesseract OCR executable, and Ollama with the local `qwen3:8b` model.
 
+### Docker Compose
+
+The Compose stack starts the app and a local Ollama service. The model is downloaded to a persistent local volume on first setup:
+
+```powershell
+docker compose up --build -d
+docker compose exec ollama ollama pull qwen3:8b
+```
+
+Open <http://127.0.0.1:8000>. Both services bind to localhost on the host. The first model pull needs internet access; inference stays inside the local Docker network. If the model is missing, offline, or slow, the business questionnaire and deterministic recommender remain available.
+
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
@@ -26,19 +37,20 @@ Copy-Item .env.example .env
 uvicorn app.main:app --reload
 ```
 
-Open <http://127.0.0.1:8000>. The API health check is `/api/health`, and interactive API documentation is at `/docs`. The advisor status reports whether Ollama is running and the selected model is installed. All chat inference uses the local Ollama service on this device; no API key or hosted model is used. The app does not fake AI responses when Ollama is unavailable.
+Open <http://127.0.0.1:8000>. The API health check is `/api/health`, and interactive API documentation is at `/docs`. The advisor status reports whether Ollama is running and the selected model is installed. Chat never invents a response when Ollama is unavailable: use the visible guided questionnaire, which sends the confirmed profile to the same deterministic recommender and eligibility checks used by the normal flow. Chat requests time out after 35 seconds so a slow local model cannot block the rest of the demo. The WhatsApp-style view is a labelled simulation that calls the same advisor endpoint.
 
 The **Load clinic demo** button creates a fictional scenario. Its sample registration document is generated in memory by `/api/demo/document`; no generated image is stored in the repository. OCR runs locally through Tesseract.
 
 ## Local GenAI architecture
 
 - `app/genai.py` connects the OpenAI Python client to Ollama's local OpenAI-compatible Chat Completions endpoint. Inference uses `qwen3:8b` by default, configurable with `OLLAMA_MODEL` and `OLLAMA_REASONING_EFFORT`.
-- Qwen3 defaults to `OLLAMA_REASONING_EFFORT=none` so the CPU-friendly local model responds within the app's request window. Set `low`, `medium`, or `high` when the machine can handle slower reasoning.
+- Qwen3 defaults to `OLLAMA_REASONING_EFFORT=none` to avoid unnecessary reasoning work. CPU response time varies by machine; the UI stops waiting after 35 seconds and the deterministic questionnaire keeps the flow available without faking a model answer. Set `low`, `medium`, or `high` only when slower reasoning is acceptable.
 - The bounded agent loop supports function calling with scoped JSON schemas and backend validation, with a maximum of four model rounds per turn. It returns tool evidence alongside the natural-language answer.
 - The advisor has five tools: `search_catalogue`, `preview_quote`, `analyze_funnel`, `assess_journey_recovery`, and `propose_profile_update`.
 - Search and analytics operate on the supplied local challenge data. Funnel results are aggregates; individual lead rows are never sent to the model.
 - Quote previews and eligibility checks call the same deterministic backend used by quote creation. A preview is not saved or accepted until the customer continues through the regular workflow.
 - Profile facts extracted from chat remain unconfirmed and are shown in the profile form. GSTIN, Udyam IDs, legal identity, and verification status are not inferred from conversation.
+- A guided business questionnaire always stays available; it works with no Ollama model and calls the deterministic catalogue recommender directly. The handoff view also shows an experimental logistic-regression activation score trained and evaluated on a fixed held-out split of synthetic challenge leads. It is a prioritisation signal only, not an eligibility or contact decision.
 - Numeric facts and business priorities are captured only when grounded in the latest message. A must-keep priority requires explicit wording from the customer. A changed quote is rechecked and any recovery is a new version that requires fresh acceptance.
 - `OLLAMA_BASE_URL` is restricted to localhost or the local Docker host so chat cannot be redirected to a hosted endpoint. Common email, Indian phone, GSTIN, and Udyam patterns are redacted before chat text is sent to the local model or stored in advisor history. Chat history is kept in the local SQLite database for this demo.
 
@@ -46,37 +58,40 @@ Keep the Ollama service on this device. Do not use real identity documents or cu
 
 ## Included challenge data
 
-The supplied data pack is included under `app/data/` as requested. Its accompanying `app/data/README.md` describes the catalogue, leads, registries, and KYC specimen documents as fictional synthetic data. The pack includes:
+The supplied data pack is included under `app/data/` as requested. Its accompanying `app/data/README.md` describes the catalogue, leads, registries, and KYC specimen documents as fictional synthetic data. The repository is private because the supplied competition materials distinguish a Judges Only pack that must not be shared and do not grant public redistribution rights for the student data. No Judges Only pack is included. The pack includes:
 
 - 25 product catalogue records, including price ranges and eligibility rules
 - 5,000 fictional lead records
 - Mock GSTIN and Udyam registries
 - Supplied KYC specimen images
 
-The document pipeline checks image clarity, deskews scans, classifies document types, extracts identifiers, validates GSTIN checksums, and only repairs a read error when exactly one corrected GSTIN matches the mock registry. A looser match is shown as a suggestion requiring the customer's confirmation. Address proof uses the fixture date specified by the supplied data pack. OCR output is shown for review; it does not establish identity by itself.
+The document pipeline checks image clarity, deskews scans, classifies document types, extracts GST legal names and identifiers, validates GSTIN checksums, and only repairs a known OCR confusion when exactly one corrected GSTIN matches the mock registry. A fuzzy GSTIN suggestion cannot verify an altered certificate, even if accepted; that case remains `REVIEW_REQUIRED`. GST legal names are compared with the selected mock registry record. Address proof uses the fixture date specified by the supplied data pack. OCR output is shown for review; it does not establish identity by itself.
 
 The lead analytics endpoint and GenAI tool use aggregate fields from this supplied synthetic dataset only. Review the competition terms before redistributing the data outside this project.
 
 ## Demo flow
 
-1. Start a journey or load the clinic scenario, then describe the business in English, Hindi, Marathi, or Hinglish.
+1. Start a journey or load the clinic scenario, then describe the business in English, Hindi, Marathi, or Hinglish—or select **Open business questionnaire** for a model-free route.
 2. Ask the advisor for catalogue comparisons, an illustrative quote, cohort insights, or help recovering a changed journey. The interface shows which tools supplied evidence.
 3. Review provisional profile facts and confirm them before recommendations.
 4. Edit the bundle, create a versioned quote, and review the itemized prices and validation receipt.
 5. Grant consent, upload a document, review actual local OCR output, and run the mock registry checks.
-6. Complete the simulated checkout and follow persisted order-state events.
+6. Complete the simulated checkout and follow persisted order-state events. Open the partner desk to see referral attribution, consent-based handoffs and the held-out propensity score.
 
 ## Project map
 
 - `app/main.py`: FastAPI routes, catalogue eligibility and pricing, SQLite persistence, KYC checks, order lifecycle, and partner handoff.
 - `app/kyc_pipeline.py`: image quality checks, deskewing, local OCR, document classification, checksum validation, and review flags.
 - `app/genai.py`: local Ollama tool definitions and bounded agent orchestration.
+- `app/propensity.py`: fixed-seed logistic regression and held-out AUC on synthetic leads.
 - `app/static/`: responsive HTML, CSS, and JavaScript; no frontend build step.
 - `app/data/`: supplied synthetic challenge data and specimen documents.
 - `tests/`: API, commercial policy, KYC/OCR fixtures, quote recovery, order, handoff, privacy, and agent-loop checks.
 - `PRIVACY.md`: what the demo processes, where it stores records, and how to delete them.
 - `.github/workflows/ci.yml`: Python compilation, JavaScript syntax validation, and automated tests.
 - `Dockerfile`: local container setup with Tesseract.
+- `docker-compose.yml`: app + local Ollama services and persistent data volumes.
+- `submission/`: 9-slide business case, architecture diagram, captioned 50-second demo video and scene script.
 
 ## Checks
 
@@ -92,5 +107,5 @@ node --check app/static/app.js
 - Registry, checkout, serviceability, and provisioning flows are simulated.
 - No authentication or production security controls are included. Do not deploy the open demo endpoints publicly with real customer data.
 - Uploaded document text and advisor chat history are stored in the local SQLite database, which is not encrypted at rest. Use fictional records only.
-- The SQLite database remains until deleted; the prototype does not expire records automatically. See [PRIVACY.md](PRIVACY.md) for the complete local data-handling note.
+- Journey-linked profile, extracted OCR results, consent, chat, quote, handoff and order records are automatically deleted 7 days after creation. Use **Delete my data** to erase the active journey immediately. The supplied challenge dataset is unchanged. See [PRIVACY.md](PRIVACY.md) for the one-page note.
 - Illustrative midpoint catalogue pricing is not an operator tariff or commercial offer.

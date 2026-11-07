@@ -617,6 +617,7 @@ def recommend(jid:str):
  for c in candidates(p):
   calc=calculate(p,c['items']);budget=int(p.get('budget') or 0)
   unmet=unmet_needs(p,c['items']);tradeoff='Compare coverage, terms and price. Serviceability not confirmed.'
+  if unmet:tradeoff='Not included: '+'; '.join(f"{item['need']} ({item['reason']})" for item in unmet)+'. '+tradeoff
   options.append({**c,**calc,'budget_fit':not budget or calc['recurring_paise']<=budget*100,'unmet_needs':unmet,'tradeoff':tradeoff})
  if 'internet' in (p.get('needs') or []):
   connected=[option for option in options if not any(item['need']=='internet' for item in option['unmet_needs'])]

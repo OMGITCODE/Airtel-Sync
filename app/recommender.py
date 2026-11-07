@@ -59,10 +59,10 @@ def _connectivity_variants(
         return [("standalone", None)]
 
     variants: list[tuple[str, str | None]] = [("value", available[0])]
-    balanced = next((pid for pid in ("P01", "P02") if pid in available and pid != available[0]), None)
+    balanced = next((pid for pid in ("P02", "P01") if pid in available and pid != available[0]), None)
     if balanced:
         variants.append(("balanced", balanced))
-    performance = next((pid for pid in ("P02", "P03") if pid in available and pid not in {value for _, value in variants}), None)
+    performance = next((pid for pid in ("P03",) if pid in available and pid not in {value for _, value in variants}), None)
     if performance:
         variants.append(("performance", performance))
     if wants_dedicated:

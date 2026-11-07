@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw, ImageFont
 from .genai import configured_model, create_client, local_runtime_status, reasoning_effort, run_agent
 from .kyc_pipeline import analyse as analyse_kyc_document, gstin_valid
+from .needs import ALLOWED_NEEDS, NEED_ALIASES, NEED_LABELS, NEED_SKUS
+from .recommender import build_candidates
 
 try:
  from dotenv import load_dotenv
@@ -145,6 +147,9 @@ def health():
  return {'ok':True,'products':len(CAT),'leads':len(LEADS),'mock_gstin':len(GST),'mock_udyam':len(UDYAM),'advisor':{'provider':'Ollama local','status':local['status'],'model':configured_model(),'reasoning_effort':reasoning_effort()}}
 @app.get('/api/catalogue')
 def catalogue():return list(CAT.values())
+@app.get('/api/needs')
+def need_catalogue():
+ return [{'id':need,'label':NEED_LABELS[need],'aliases':NEED_ALIASES[need]} for need in ALLOWED_NEEDS]
 @app.get('/api/demo')
 def demo():return {'gstin':DEMO_GST['gstin'],'legal_name':DEMO_GST['legal_name'],'udyam':DEMO_UDY['udyam_number'],'city_tier':2,'employees':6,'sites':1,'segment':'prof','budget':4500,'business_type':'Clinic','name':DEMO_GST['trade_name']}
 @app.get('/api/demo/document')
@@ -227,7 +232,7 @@ def recover(jid:str,b:RecoverInput):
  receipt={'previous_version':last['version'],'new_version':new['version'],
   'changed_facts':sorted({issue['code'] for issue in check_bundle(profile,previous_items)}|({'BUDGET'} if int(profile.get('budget') or 0) and old['recurring_paise']>int(profile['budget'])*100 else set())),
   'preserved':[item['product_id'] for item in option['items']],
-  'dropped':[{'product_id':pid,'name':CAT[pid]['product_name'],'need':need_of(pid)} for pid in requested if pid in CAT],
+  'dropped':[{'product_id':pid,'name':CAT[pid]['product_name'],'need':need_of(pid,profile)} for pid in requested if pid in CAT],
   'unmet_needs':option['unmet_needs'],'monthly_before_paise':old['recurring_paise'],
   'monthly_after_paise':new['recurring_paise'],'setup_before_paise':old['setup_paise'],
   'setup_after_paise':new['setup_paise'],'within_budget':option['within_budget'],
@@ -236,9 +241,9 @@ def recover(jid:str,b:RecoverInput):
  with con() as c:c.execute('INSERT OR REPLACE INTO receipts VALUES(?,?,?)',(new['quote_id'],j(receipt),now()))
  return {**new,'receipt':receipt}
 
-NEED_SKUS={'internet':['P02','P01','P04'],'backup':['P09'],'email':['P16'],'security':['P20'],'calling':['P12'],'mobile':['P07'],'website':['P18'],'cctv':['P23']}
-
-def need_of(pid:str)->str:
+def need_of(pid:str,profile:dict[str,Any]|None=None)->str:
+ pid=str(pid).upper()
+ if pid in NEED_SKUS.get('dedicated_line',[]) and profile and 'dedicated_line' in (profile.get('needs') or []):return 'dedicated_line'
  for need,skus in NEED_SKUS.items():
   if pid in skus:return need
  return 'extra'
@@ -261,7 +266,7 @@ def recovery_options(profile:dict[str,Any],items:list[dict[str,Any]])->list[dict
   if not keep:return
   quote=calculate(profile,keep)
   if not quote['valid']:return
-  unmet=sorted({need_of(pid) for pid in dropped if need_of(pid)!='extra'})
+  unmet=sorted({need_of(pid,profile) for pid in dropped if need_of(pid,profile)!='extra'})
   if set(unmet)&must:return
   options.append({'drop':dropped,'dropped_names':[CAT[pid]['product_name'] for pid in dropped if pid in CAT],
    'unmet_needs':unmet,'items':keep,'recurring_paise':quote['recurring_paise'],'setup_paise':quote['setup_paise'],
@@ -274,8 +279,9 @@ def recovery_options(profile:dict[str,Any],items:list[dict[str,Any]])->list[dict
  return sorted(unique.values(),key=lambda option:(not option['within_budget'],-option['recurring_paise']))[:3]
 
 UNMET_REASONS={'ACTIVE_GSTIN':'requires an active GSTIN','CITY_TIER':'is not sold in this city tier',
- 'EMPLOYEES':'requires a larger team','SITES':'requires more sites','DEPENDENCY':'requires a connectivity product first',
- 'NOT_SELECTED':'is not included in this option'}
+ 'EMPLOYEES':'requires a larger team','SITES':'requires more sites','DEPENDENCY':'requires a compatible connectivity product',
+ 'NOT_SELECTED':'is not included in this option','INVALID_QUANTITY':'exceeds the supported quantity for one quote and needs review',
+ 'USER_QUANTITY':'requires a quantity within the confirmed employee count','SITE_QUANTITY':'requires a quantity within the confirmed site count'}
 
 def unmet_needs(profile:dict[str,Any],items:list[dict[str,Any]])->list[dict[str,Any]]:
  have={str(item['product_id']).upper() for item in items};out=[]
@@ -284,58 +290,19 @@ def unmet_needs(profile:dict[str,Any],items:list[dict[str,Any]])->list[dict[str,
   if not skus or have&set(skus):continue
   eligible=[];failures=[]
   for pid in skus:
-   issues=[issue for issue in check_bundle(profile,items+[{'product_id':pid,'quantity':1}]) if issue['product_id']==pid]
+   unit=CAT[pid]['unit'].casefold()
+   quantity=int(profile.get('sites') or 1) if 'site' in unit else int(profile.get('employees') or 1) if 'user' in unit else 1
+   issues=[issue for issue in check_bundle(profile,items+[{'product_id':pid,'quantity':quantity}]) if issue['product_id']==pid]
    if not issues:eligible.append(pid)
    else:failures.extend(issues)
   if eligible:code='NOT_SELECTED'
   else:code=next((issue['code'] for issue in failures if issue['code']!='DEPENDENCY'),'DEPENDENCY')
-  out.append({'need':need,'code':code,'reason':UNMET_REASONS.get(code,'requires review'),
+  out.append({'need':need,'label':NEED_LABELS.get(need,need.replace('_',' ').title()),'code':code,'reason':UNMET_REASONS.get(code,'requires review'),
    'unlock_with_gstin':code=='ACTIVE_GSTIN'})
  return out
 
 def candidates(profile):
- wants=list(profile.get('needs') or ['internet']);main=[];alts=[]
- for need in wants:
-  for pid in NEED_SKUS.get(need,[]):
-   if pid not in main:
-    p=CAT[pid]; qty=(int(profile.get('employees') or 1) if pid=='P16' else min(3,int(profile.get('employees') or 1)) if pid=='P20' else 1)
-    main.append({'product_id':pid,'quantity':qty});break
- # dependency closure, not to permit disallowed products
- ids={x['product_id'] for x in main}
- for itm in list(main):
-  p=CAT[itm['product_id']]
-  if p['requires_one_of'] and not any(x in ids for x in p['requires_one_of']):
-   for option in ['P01','P02','P04']:
-    if option in p['requires_one_of']:
-     main.insert(0,{'product_id':option,'quantity':1});ids.add(option);break
- # prune invalid one SKU at a time, preserve mandatory dependencies when possible
- def clean(items):
-  items=list(items)
-  for _ in range(15):
-   errs=check_bundle(profile,items)
-   if not errs:break
-   rem=errs[0]['product_id'];items=[i for i in items if i['product_id']!=rem]
-  return items
- main=clean(main)
- if not main:
-  for pid in ['P01','P04','P07','P18']:
-   t=[{'product_id':pid,'quantity':1}]
-   if not check_bundle(profile,t):main=t;break
- # options: always only fully validated, avoid duplicate copies
- choices=[]
- def add(items,label):
-  if not items or check_bundle(profile,items):return
-  key=tuple(sorted((i['product_id'],i['quantity']) for i in items))
-  if key not in [c['_key'] for c in choices]:choices.append({'label':label,'items':items,'_key':key})
- add(main,'Recommended fit')
- cheaper=sorted(main,key=lambda x:price_paise(CAT[x['product_id']])*x['quantity'],reverse=True)
- if len(cheaper)>1:
-  for cut in cheaper:
-   reduced=clean([x for x in main if x['product_id']!=cut['product_id']]);add(reduced,'Lower-cost alternative')
-   if len(choices)>=3:break
- if len(choices)<3 and any(x['product_id'] in ('P02','P01') for x in main):
-  alt=[{'product_id':'P04','quantity':1} if i['product_id'] in ('P01','P02') else i for i in main];add(clean(alt),'Simpler connectivity')
- return [{k:v for k,v in c.items() if k!='_key'} for c in choices]
+ return build_candidates(profile,CAT,check_bundle,price_paise)
 
 DEVANAGARI_DIGITS=str.maketrans('०१२३४५६७८९','0123456789')
 
@@ -485,25 +452,48 @@ def propose_profile(profile:dict[str,Any],args:dict[str,Any],source_text:str|Non
  if lang in ('en','hi','mr') and explicitly_grounded('language',lang,source_text):changes['language']=lang
  needs=args.get('needs')
  if isinstance(needs,list):
-  allowed={'internet','backup','email','security','calling','mobile','website','cctv'}
+  allowed=set(ALLOWED_NEEDS)
   stated={x.strip().casefold() for x in needs if isinstance(x,str) and x.strip().casefold() in allowed and explicitly_grounded('needs',x.strip().casefold(),source_text)}
   existing={x for x in updated.get('needs',[]) if isinstance(x,str) and x in allowed}
   if stated:changes['needs']=sorted(existing|stated)
  must=args.get('must')
  if isinstance(must,list):
-  explicit_must={x.strip().casefold() for x in must if isinstance(x,str) and x.strip().casefold() in {'internet','backup','email','security','calling','mobile','website','cctv'} and explicitly_grounded('needs',x.strip().casefold(),source_text) and explicitly_mandatory(x.strip().casefold(),source_text)}
+  explicit_must={x.strip().casefold() for x in must if isinstance(x,str) and x.strip().casefold() in set(ALLOWED_NEEDS) and explicitly_grounded('needs',x.strip().casefold(),source_text) and explicitly_mandatory(x.strip().casefold(),source_text)}
   if explicit_must:
-   existing_must={x for x in updated.get('must',[]) if isinstance(x,str) and x in {'internet','backup','email','security','calling','mobile','website','cctv'}}
+   existing_must={x for x in updated.get('must',[]) if isinstance(x,str) and x in set(ALLOWED_NEEDS)}
    changes['must']=sorted(existing_must|explicit_must)
-   changes['needs']=sorted({x for x in (changes.get('needs') or updated.get('needs') or []) if x in {'internet','backup','email','security','calling','mobile','website','cctv'}}|explicit_must)
+   changes['needs']=sorted({x for x in (changes.get('needs') or updated.get('needs') or []) if x in set(ALLOWED_NEEDS)}|explicit_must)
  updated.update(changes)
  updated['confirmed']=False
  return {'summary':'Captured explicit business details as unconfirmed suggestions.' if changes else 'No new profile facts were stated clearly enough to capture.','updates':changes,'profile':safe_profile(updated)}
 
-PROFILE_NEEDS={'internet','backup','email','security','calling','mobile','website','cctv'}
+PROFILE_NEEDS=set(ALLOWED_NEEDS)
 PROFILE_FIELDS={'name','business_type','employees','sites','city_tier','budget','needs','must','language','current_tools','confirmed','gstin','udyam_number','udyam','legal_name','segment'}
 GSTIN_PATTERN=re.compile(r'^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$')
 UDYAM_PATTERN=re.compile(r'^UDYAM-?([A-Z]{2})-?(\d{2})-?(\d{7})$')
+
+def canonical_need_key(value:str)->str:
+ return ' '.join(re.sub(r'[_-]+',' ',value.casefold()).split())
+
+def normalize_need_list(value:Any,field_name:str)->list[str]:
+ if not isinstance(value,list):
+  raise HTTPException(422,f'{field_name} must be a list of supported business needs.')
+ lookup={}
+ for need in ALLOWED_NEEDS:
+  for term in (need,NEED_LABELS[need],*NEED_ALIASES[need]):
+   lookup.setdefault(canonical_need_key(term),need)
+ normalized=[];unknown=False
+ for item in value:
+  if not isinstance(item,str):unknown=True;continue
+  for token in re.split(r'[,;]',item):
+   key=canonical_need_key(token.strip())
+   if not key:continue
+   need=lookup.get(key)
+   if need is None:unknown=True
+   elif need not in normalized:normalized.append(need)
+ if unknown:
+  raise HTTPException(422,f'{field_name} includes an unsupported value. Choose from the catalogue priorities.')
+ return normalized
 
 def canonical_udyam(value:str)->str|None:
  compact=re.sub(r'\s+','',value.strip().upper())
@@ -537,15 +527,11 @@ def validate_profile(profile:dict[str,Any])->None:
  if tier is None and not confirmed:pass
  elif not isinstance(tier,int) or isinstance(tier,bool) or tier not in (1,2):
   raise HTTPException(422,'City tier must be Tier 1 or Tier 2.')
- needs=profile.get('needs')
- if not isinstance(needs,list) or any(not isinstance(item,str) or item not in PROFILE_NEEDS for item in needs):
-  raise HTTPException(422,'Choose business priorities from the supported list.')
+ needs=normalize_need_list(profile.get('needs'),'Business priorities')
  if len(needs)>len(PROFILE_NEEDS):raise HTTPException(422,'Too many business priorities were selected.')
- profile['needs']=list(dict.fromkeys(needs))
- must=profile.get('must',[])
- if not isinstance(must,list) or any(not isinstance(item,str) or item not in PROFILE_NEEDS for item in must):
-  raise HTTPException(422,'Must-keep items must come from the supported priorities.')
- profile['must']=list(dict.fromkeys(must))
+ profile['needs']=needs
+ must=normalize_need_list(profile.get('must',[]),'Must-keep priorities')
+ profile['must']=must
  if not set(profile['must']).issubset(profile['needs']):
   raise HTTPException(422,'Every must-keep item must also be selected as a business priority.')
  if profile.get('language') not in ('en','hi','mr'):
@@ -631,12 +617,12 @@ def recommend(jid:str):
  for c in candidates(p):
   calc=calculate(p,c['items']);budget=int(p.get('budget') or 0)
   unmet=unmet_needs(p,c['items']);tradeoff='Compare coverage, terms and price. Serviceability not confirmed.'
-  if unmet:tradeoff='Not included: '+'; '.join(f"{item['need']} ({item['reason']})" for item in unmet)+'. '+tradeoff
   options.append({**c,**calc,'budget_fit':not budget or calc['recurring_paise']<=budget*100,'unmet_needs':unmet,'tradeoff':tradeoff})
  if 'internet' in (p.get('needs') or []):
   connected=[option for option in options if not any(item['need']=='internet' for item in option['unmet_needs'])]
   if connected:options=connected
- options.sort(key=lambda option:(len(option['unmet_needs']),not option['budget_fit']))
+ must=set(p.get('must') or [])
+ options.sort(key=lambda option:(sum(item['need'] in must for item in option['unmet_needs']),len(option['unmet_needs']),not option['budget_fit'],option['setup_paise'],option['recurring_paise']))
  return {'options':options,'profile':p,'pricing_disclosure':'Midpoint demo policy; prices are illustrative only.'}
 
 @app.post('/api/quotes')

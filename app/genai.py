@@ -7,10 +7,10 @@ from typing import Any, Callable
 from urllib.parse import urlsplit
 
 import httpx
+from .needs import ALLOWED_NEEDS, SEGMENT_HINTS
 
 MODEL_DEFAULT = "qwen3:8b"
 OLLAMA_URL_DEFAULT = "http://127.0.0.1:11434"
-ALLOWED_NEEDS = ["internet", "backup", "email", "security", "calling", "mobile", "website", "cctv"]
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -194,11 +194,15 @@ def build_instructions(profile: dict[str, Any], language: str) -> str:
         if key in profile
     }
     language_name = {"hi": "Hindi", "mr": "Marathi", "en": "English"}.get(language, "the language used by the customer")
+    business_type = str(profile.get("business_type") or "").casefold()
+    segment_hint = next((hint for segment, hint in SEGMENT_HINTS.items() if segment in business_type), None)
     return f"""You are OneJourney, a multilingual digital business connectivity advisor for the Airtel SYNC 2026 hackathon prototype.
 
 Respond naturally in {language_name} by default. If the customer clearly uses English, Hindi, Marathi, or Hinglish, follow their language. Be concise but useful: understand the business, explain trade-offs, and make a specific next step easy.
 
 Current non-identifying business profile (unconfirmed facts must remain provisional): {json.dumps(safe_profile, ensure_ascii=False)}
+
+Relevant segment discovery hint (a question prompt only; never infer, select, or quote a need from this hint): {segment_hint or 'No segment-specific hint.'}
 
 Operating rules:
 - Use propose_profile_update for facts the customer explicitly stated. Never infer GSTIN, Udyam, legal identity, address, or verification status. Profile changes are suggestions until the customer confirms the form.
@@ -209,6 +213,8 @@ Operating rules:
 - Never ask for a password, payment card, OTP, or full identity document in chat. Tell the user to use the consent-gated KYC step for fictional demo records only.
 - Never claim that this prototype contacted Airtel, a government registry, a payment provider, a partner, or a live network.
 - Do not call a tool just to appear agentic. Ask one focused question when a required fact is missing; otherwise use the relevant tools and explain their result.
+- Use a relevant segment hint for at most one follow-up when it closes a discovery gap. A hint is not evidence of customer intent and must never add a profile need or product.
+- Ask the customer to confirm quantities for lines, devices, cameras, channels, vehicles, and other units they have not stated. Clearly label any one-unit assumption in a preview; never treat headcount as device or line count.
 
 When using tools, explain the relevant evidence in plain language. For quote previews, distinguish an illustrative preview from a saved customer quote. Do not expose hidden reasoning; show verifiable inputs, tool evidence, assumptions, and next steps instead."""
 

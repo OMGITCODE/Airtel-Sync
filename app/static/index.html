@@ -133,8 +133,8 @@
                 <label>Employees<input type="number" min="1" max="500" step="1" name="employees" placeholder="e.g. 6" required></label><label>Sites<input type="number" min="1" max="100" step="1" name="sites" placeholder="e.g. 1" required></label>
                 <label>City tier<select name="city_tier" required><option value="" selected disabled>Choose tier</option><option value="1">Tier 1</option><option value="2">Tier 2</option></select></label><label>Budget / month (₹)<input type="number" min="0" max="10000000" step="1" name="budget" placeholder="e.g. 4500" required></label>
                 <label class="wide">GSTIN <span class="optional">Optional · masked while typing</span><input name="gstin" type="password" maxlength="15" autocomplete="off" placeholder="Synthetic registry GSTIN"></label>
-                <label class="wide">Business priorities <span class="optional">Separate with commas</span><input name="needs" placeholder="internet, email, backup, security"></label>
-                <label class="wide">Must keep <span class="optional">Optional · must also be a priority</span><input name="must" placeholder="e.g. internet, email"></label>
+                <label class="wide">Business priorities <span class="optional">Choose suggestions or enter comma-separated priorities</span><input name="needs" list="business-needs" placeholder="e.g. internet, secure_wifi"><datalist id="business-needs"></datalist></label>
+                <label class="wide">Must keep <span class="optional">Optional · must also be a priority</span><input name="must" list="business-needs" placeholder="e.g. internet, email"></label>
                 <label class="wide">Current tools<input name="current_tools" placeholder="Mobile hotspot, personal email" maxlength="160"></label>
                 <label class="wide">Preferred language<select id="language" name="language" required><option value="hi">Hindi</option><option value="en">English</option><option value="mr">Marathi</option></select></label>
                 <button class="btn primary wide form-submit" type="submit">Confirm profile &amp; find eligible plans <span class="btn-arrow">↗</span></button>

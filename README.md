@@ -4,6 +4,10 @@ OneJourney is a full-stack small-business onboarding prototype built around a mu
 
 The experience also includes local OCR, consent-gated document handling, synthetic GSTIN/Udyam checks, customer-chosen quote recovery, simulated checkout and fulfilment events, and a responsive browser interface. This is a hackathon demonstration; it is not an Airtel production service and does not contact a live operator, registry, payment system, or network.
 
+Discovery covers all 20 customer priorities represented by the supplied 25-item catalogue, including branch connectivity, security, communications, productivity, POS, IoT, and fleet tracking. Recommendations use the same deterministic eligibility and pricing rules as quotes. They disclose assumed quantities, show priorities that could not be included with the reason, and never add a non-internet service the customer did not request. Segment prompts are advisory questions only; they never add products automatically.
+
+The priority vocabulary and its English, Hindi, and Marathi aliases are defined once and shared by the form, local advisor, input validation, and recommender. Unknown priorities are rejected with a clear correction path rather than silently ignored.
+
 ## Run locally
 
 Requirements: Python 3.11+, the Tesseract OCR executable, and Ollama with the local `qwen3:8b` model.

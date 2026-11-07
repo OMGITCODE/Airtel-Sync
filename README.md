@@ -91,7 +91,7 @@ The lead analytics endpoint and GenAI tool use aggregate fields from this suppli
 - `.github/workflows/ci.yml`: Python compilation, JavaScript syntax validation, and automated tests.
 - `Dockerfile`: local container setup with Tesseract.
 - `docker-compose.yml`: app + local Ollama services and persistent data volumes.
-- `submission/`: 9-slide business case, architecture diagram, captioned 50-second demo video and scene script.
+- `submission/`: 7-slide business case, architecture diagram, captioned 50-second demo video and scene script.
 
 ## Checks
 

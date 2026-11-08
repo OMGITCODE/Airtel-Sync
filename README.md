@@ -1,16 +1,12 @@
 # OneJourney · Airtel SYNC 2026
 
-OneJourney is a full-stack small-business onboarding prototype built around a multilingual local GenAI advisor powered by Ollama. The advisor can hold context across turns and call tightly scoped tools to search the supplied product catalogue, calculate rule-checked quote previews, and recover a journey after an eligibility change. A deterministic FastAPI policy engine remains authoritative for prices, eligibility, saved quotes, consent, KYC simulation, and order state.
+OneJourney is a local hackathon prototype for small-business telecom onboarding. An owner describes their needs to a seven-language advisor, compares eligible bundles, reviews a quote, submits documents, and tracks the expected activation date. The demo uses fictional business records and simulates registry checks, payments, installation updates, and messaging.
 
-The experience also includes local OCR, consent-gated document handling, synthetic GSTIN/Udyam checks, customer-chosen quote recovery, simulated checkout and fulfilment events, and a responsive browser interface. This is a hackathon demonstration; it is not an Airtel production service and does not contact a live operator, registry, payment system, or network.
+[Watch the 54-second demo](submission/OneJourney_Demo.mp4) · [Architecture diagram](submission/architecture.svg) · [Seven-slide business case](submission/OneJourney_Business_Case.pptx) · [Privacy note](PRIVACY.md)
 
-Discovery covers all 20 customer priorities represented by the supplied 25-item catalogue, including branch connectivity, security, communications, productivity, POS, IoT, and fleet tracking. Recommendations use the same deterministic eligibility and pricing rules as quotes. They disclose assumed quantities, show priorities that could not be included with the reason, and never add a non-internet service the customer did not request. Segment prompts are advisory questions only; they never add products automatically.
+**Try the reviewer workflow.** Applicant K10's signatory ID and application name disagree. OneJourney pauses checkout, lets the owner authorize sharing, and gives a partner the evidence needed to record a decision. Approval applies to the reviewed identity and quote. [Run this case locally](#try-the-review-case).
 
-The priority vocabulary and its English, Hindi, and Marathi aliases are defined once and shared by the form, local advisor, input validation, and recommender. Unknown priorities are rejected with a clear correction path rather than silently ignored.
-
-Unlocking Partner desk enables the aggregate acquisition dashboard on Overview. Segment and lead-month filters recompute aggregate funnel conversion, the largest observed stage loss, monthly lead cohorts, activation time, follow-up effort, and synthetic acquisition cost from the supplied records. Starting a customer journey adds a live milestone strip that follows profile confirmation, quote acceptance, KYC verification, and simulated activation. The dashboard does not expose individual lead records.
-
-The overview opens with a locally rendered signal atlas. Animated packets follow illustrative routes over a shaded globe. Motion pauses when the atlas is offscreen or the tab is hidden. The atlas respects reduced motion and remembers the visitor’s play/pause choice. Fonts and artwork are bundled for offline use. Each stop on the roadmap opens its workspace, and the overview, advisor, quote, KYC, tracker, partner desk and privacy note share light and dark themes.
+The FastAPI backend controls eligibility, pricing and order state. Ollama handles conversation, and guided discovery uses the same catalogue recommender when the model is unavailable or slow. The partner desk adds consented handoffs, synthetic lead prioritization and cohort analytics.
 
 ## Run locally
 
@@ -18,7 +14,7 @@ Requirements: Python 3.11+, the Tesseract OCR executable, and Ollama with the lo
 
 ### Docker Compose
 
-The Compose stack starts the app and a local Ollama service. The model is downloaded to a persistent local volume on first setup:
+The Compose stack starts the app and a local Ollama service. The pull command downloads the model into a persistent local volume:
 
 ```powershell
 docker compose up --build -d
@@ -27,17 +23,19 @@ docker compose exec ollama ollama pull qwen3:8b
 
 Open <http://127.0.0.1:8000>. Both services bind to localhost on the host. The first model pull needs internet access; inference stays inside the local Docker network. If the model is missing, offline, or slow, the business questionnaire and deterministic recommender remain available.
 
+### Python on Windows
+
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ollama pull qwen3:8b
-Copy-Item .env.example .env
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
 # Ollama defaults to http://127.0.0.1:11434; keep the Ollama app running.
 uvicorn app.main:app --reload
 ```
 
-Open <http://127.0.0.1:8000>. The API health check is `/api/health`, and interactive API documentation is at `/docs`. The advisor status reports whether Ollama is running and the selected model is installed. Chat never invents a response when Ollama is unavailable: use the visible guided questionnaire, which sends the confirmed profile to the same deterministic recommender and eligibility checks used by the normal flow. Chat requests time out after about 20 seconds so a slow local model cannot block the rest of the demo. The WhatsApp-style view is a labelled simulation that calls the same advisor endpoint.
+Open <http://127.0.0.1:8000>. The API health check is `/api/health`, and interactive API documentation is at `/docs`. The advisor status reports whether Ollama is running and the selected model is installed. When Ollama is unavailable or takes about 20 seconds to answer, the advisor switches to guided discovery. The business questionnaire is also available directly. The WhatsApp-style view is a labelled simulation that calls the same advisor endpoint.
 
 With demo mode enabled, **Explore clinic demo** opens K02. Choose any K01–K12 applicant before quoting. After accepting the quote, give KYC consent, import the selected demo specimens, review each extraction, then verify. Tesseract must be installed to process documents.
 
@@ -61,7 +59,7 @@ For API calls, creation returns a token once. Send `Authorization: Bearer <token
 - Qwen3 defaults to `OLLAMA_REASONING_EFFORT=none` to avoid unnecessary reasoning work. CPU response time varies by machine; the UI stops waiting after about 20 seconds and the deterministic questionnaire keeps the flow available without faking a model answer. Set `low`, `medium`, or `high` only when slower reasoning is acceptable.
 - The bounded agent loop supports function calling with scoped JSON schemas and backend validation, with a maximum of four model rounds per turn. It returns tool evidence alongside the natural-language answer.
 - The customer advisor has four tools: `search_catalogue`, `preview_quote`, `assess_journey_recovery`, and `propose_profile_update`.
-- Search and analytics operate on the supplied local challenge data. Funnel results are aggregates; individual lead rows are never sent to the model.
+- The advisor can search the product catalogue. Cohort analytics and lead rescue queues require a partner key. Individual lead rows stay outside the model prompt.
 - Quote previews and eligibility checks call the same deterministic backend used by quote creation. A preview is not saved or accepted until the customer continues through the regular workflow.
 - Profile facts extracted from chat remain unconfirmed and are shown in the profile form. GSTIN, Udyam IDs, legal identity, and verification status are not inferred from conversation.
 - A guided business questionnaire always stays available; it works with no Ollama model and calls the deterministic catalogue recommender directly. The handoff view also shows an experimental logistic-regression activation score trained and evaluated on a fixed held-out split of synthetic challenge leads. It is a prioritisation signal only, not an eligibility or contact decision.
@@ -89,12 +87,15 @@ Staff analytics use aggregate fields from this supplied synthetic dataset only. 
 2. Ask the advisor for catalogue comparisons, an illustrative quote, or help recovering a changed journey. The interface shows which tools supplied evidence.
 3. Review provisional profile facts and confirm them before recommendations.
 4. Edit the bundle, create a versioned quote, and review the itemized prices and validation receipt.
-5. Grant consent, upload a document, review actual local OCR output, and run the mock registry checks.
+5. Grant KYC consent and review the OCR extraction for each of the four required documents. Run verification and, if evidence conflicts, authorize partner review.
 6. Complete the simulated checkout and follow persisted order-state events. Open the partner desk to see referral attribution, consent-based handoffs and the held-out propensity score.
 
 ## Project map
 
-- `app/main.py`: FastAPI routes, catalogue eligibility and pricing, SQLite persistence, KYC checks, order lifecycle, and partner handoff.
+- `app/main.py`: application setup, customer discovery, catalogue eligibility, quotes and pricing.
+- `app/access.py`, `app/storage.py`: journey and staff credentials, request limits, SQLite migrations, and evidence bindings.
+- `app/onboarding.py`, `app/evidence.py`: consent, document intake, registry comparison, and audited reviewer decisions.
+- `app/fulfilment.py`: checkout, scheduling, order events, simulated notifications, and the partner desk.
 - `app/kyc_pipeline.py`: image quality checks, deskewing, local OCR, document classification, checksum validation, and review flags.
 - `app/genai.py`: local Ollama tool definitions and bounded agent orchestration.
 - `app/propensity.py`: fixed-seed logistic regression and held-out AUC on synthetic leads.

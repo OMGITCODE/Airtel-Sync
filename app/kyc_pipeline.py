@@ -6,10 +6,10 @@ A looser registry-anchored guess (same trade name, <=3 differing characters) is 
 the owner must confirm; it is never treated as read or verified.
 """
 from __future__ import annotations
-import itertools, re
+import itertools, os, re
 from datetime import date
 
-FIXTURE_TODAY = date(2026, 7, 15)          # README: use 2026-07-15 as "today" for date checks
+FIXTURE_TODAY = date.fromisoformat(os.getenv("ONEJOURNEY_FIXTURE_DATE", "2026-07-15"))          # README: use 2026-07-15 as "today" for date checks
 ADDRESS_PROOF_MAX_AGE_DAYS = 90
 BLUR_MIN = 60.0                            # Laplacian variance; specimens: blurred=1.0, all others >=937
 GSTIN_RE = re.compile(r'\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b')   # 15 chars (the old pattern needed 16)
@@ -65,6 +65,8 @@ def mask(g): return None if not g else g[:2] + '*' * 9 + g[-4:]
 
 def _ocr_bytes(raw: bytes):
     import cv2, numpy as np, pytesseract
+    if os.getenv('ONEJOURNEY_TESSERACT_CMD'):
+        pytesseract.pytesseract.tesseract_cmd=os.environ['ONEJOURNEY_TESSERACT_CMD']
     g = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_GRAYSCALE)
     if g is None: raise ValueError('undecodable image')
     blur = float(cv2.Laplacian(g, cv2.CV_64F).var())
@@ -108,10 +110,11 @@ def analyse(raw: bytes, registry: dict, today: date = FIXTURE_TODAY) -> dict:
     out['gstin_candidates'] = [c for c in GSTIN_RE.findall(up) if gstin_valid(c)]   # shape alone is not a read: must pass the checksum
     f = out['fields']
     if dt == 'gst_certificate':
-        m = re.search(r'GSTIN\s+([0-9A-Z ]{15,17})', up)
+        m = re.search(r'\bGSTIN[\s:\-]+([0-9A-Z ]{15,17})', up)
         f['legal_name'] = _g(t, 'Legal name'); f['trade_name'] = _g(t, 'Trade name')
         f['gstin_raw'] = re.sub(r'\s', '', m.group(1)) if m else None
         f['gstin_checksum_valid_as_read'] = gstin_valid(f['gstin_raw']) if f['gstin_raw'] else False
+        out['gstin_candidates'] = [f['gstin_raw']] if f['gstin_checksum_valid_as_read'] else []
         if f['gstin_raw'] and not out['gstin_candidates']:
             fixed, how = repair_gstin(f['gstin_raw'], registry); f['gstin_read_quality'] = how
             if fixed: out['gstin_candidates'] = [fixed]
@@ -125,11 +128,16 @@ def analyse(raw: bytes, registry: dict, today: date = FIXTURE_TODAY) -> dict:
     elif dt == 'address_proof':
         m = re.search(r'Bill date\s+(\d{4}-\d{2}-\d{2})', t); f['billed_to'] = _g(t, 'Billed to'); f['bill_date'] = m.group(1) if m else None
         if f['bill_date']:
-            age = (today - date.fromisoformat(f['bill_date'])).days; f['age_days'] = age
+            try: age = (today - date.fromisoformat(f['bill_date'])).days
+            except ValueError: age = -1
+            f['age_days'] = age
+            if age < 0: out['flags'].append('ADDRESS_PROOF_DATE_INVALID')
             if age > ADDRESS_PROOF_MAX_AGE_DAYS: out['flags'].append(f'ADDRESS_PROOF_STALE: bill is {age} days old (limit {ADDRESS_PROOF_MAX_AGE_DAYS})')
         else: out['flags'].append('ADDRESS_PROOF_DATE_UNREADABLE')
     elif dt == 'signatory_id':
         n = re.search(r'Name\s*\n\s*(.+)', t); b = re.search(r'For business\s*\n\s*(.+)', t); v = re.search(r'Valid till\s*\n?\s*(\d{4}-\d{2}-\d{2})', t)
         f.update(name=n.group(1).strip() if n else None, business=b.group(1).strip() if b else None, valid_till=v.group(1) if v else None)
-        if f['valid_till'] and date.fromisoformat(f['valid_till']) < today: out['flags'].append('SIGNATORY_ID_EXPIRED')
+        try: valid = date.fromisoformat(f['valid_till'] or '')
+        except ValueError: valid = None
+        if not valid or valid < today: out['flags'].append('SIGNATORY_ID_EXPIRED_OR_UNREADABLE')
     return out

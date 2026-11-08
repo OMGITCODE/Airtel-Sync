@@ -359,3 +359,12 @@
 @container journey-workflow (max-width: 355px) {
   .view:not(#view-overview) .field-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+.service-tools { margin-block: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.service-tools summary { cursor: pointer; font-weight: 600; }
+.service-tools label { display: grid; gap: 5px; margin: 10px 0; }
+.service-tools :is(input,select,textarea) { min-height: 40px; padding: 8px; background: var(--canvas); color: var(--ink); border: 1px solid var(--line); }
+.queue-case { border-block-start: 1px solid var(--line); padding-block: 12px; }
+.tracker-progress { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; }
+.tracker-progress li { flex: 1 1 95px; border-top: 3px solid var(--line); padding-top: 5px; color: var(--muted); }
+.tracker-progress li.recorded { border-color: var(--accent); color: var(--ink); }

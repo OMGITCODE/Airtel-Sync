@@ -19,5 +19,6 @@ jobs:
           python -m compileall -q app
           node --check app/static/app.js
           node --check app/static/signal-atlas.js
+          node --check app/static/service-controls.js
       - name: Test policies and end-to-end mock checkout
         run: pytest -q

@@ -64,16 +64,14 @@
 </head>
 <body>
   <main class="sheet">
-    <div class="eyebrow">ONEJOURNEY · LOCAL DEMONSTRATION · 7 NOVEMBER 2026</div>
-    <h1>Privacy, <em>clearly explained.</em></h1>
-    <p>Use only the supplied synthetic challenge records. Do not upload real identity documents or customer information. OneJourney is not an Airtel production service and has no production authentication.</p>
-    <div class="callout">KYC upload requires purpose-specific consent. Images are processed in memory by local OpenCV/Tesseract OCR and are not saved. Extracted fields, masked previews, identifiers, consent, profile, quotes, chat history, handoffs and simulated order events are stored in the local SQLite database, which is not encrypted at rest.</div>
-    <h2>Local processing</h2>
-    <p>Only advisor chat goes to the configured local Ollama model; common email, phone, GSTIN and Udyam patterns are redacted first. KYC fields never go to the model. The guided questionnaire and catalogue recommender work without Ollama. WhatsApp preview is simulated and uses the same local advisor route. No government, payment, Airtel or other hosted service is contacted.</p>
-    <h2>Retention and deletion</h2>
-    <p>Journey-linked records expire <strong>7 days after journey creation</strong>. The app removes expired journeys at startup and checks hourly while running. Use <strong>Delete my data</strong> in the app to erase the active journey’s profile, extracted KYC results, consent, quotes, chat, handoffs and simulated order history immediately. The supplied synthetic challenge dataset in <code>app/data/</code> is not deleted.</p>
-    <h2>Prototype limits</h2>
-    <p>Registry, pricing, eligibility and activation are simulations. Keep the app bound to localhost; do not expose it to the public internet. The supplied data pack describes its sample businesses and identifiers as fictional. The GitHub repository remains private because the competition materials do not grant public redistribution rights. Review competition terms before sharing the supplied data elsewhere.</p>
+    <div class="eyebrow">ONEJOURNEY · LOCAL PROTOTYPE · 8 NOVEMBER 2026</div>
+    <h1>Privacy <em>and consent.</em></h1>
+    <p>DPDP Act, 2023</p>
+    <h2>Notice, purpose and choice</h2><p>This prototype is designed to align with the Digital Personal Data Protection Act, 2023. Sections 5 and 6 cover notice and consent. Use fictional data. KYC consent permits local OCR and mock registry checks. Partner sharing requires separate permission. Share only the information needed for each purpose (§6(1)).</p>
+    <h2>What is stored</h2><p>Images are processed locally. Larger uploads may use temporary files during the request. Original images are not retained by the app. SQLite retains extracted fields, file digests for duplicate checks, verification decisions, quotes, order events and review history. Identifiers are masked in customer responses. The local database is unencrypted. The local advisor receives redacted chat and business facts. Optional dictation uses browser speech recognition, which may send audio to its provider after opt-in. SMS, WhatsApp, DigiLocker import and signature steps are simulated.</p>
+    <h2>Withdrawal, retention and erasure</h2><p>Withdraw KYC consent on the verification screen to erase its documents, identifiers and approval. Withdraw partner sharing in Partner desk to remove shared handoffs and end case access. These controls implement the withdrawal and cessation design in §6(4)–(6). Journey access expires after seven days. Startup and hourly cleanup erase linked records. Delete my data erases the current journey immediately (§8(7), §12). The supplied fictional reference dataset has a separate lifecycle.</p>
+    <h2>Grievances and contact</h2><p>Contact the local demo operator through Privacy request in the workspace footer using your journey token. Keep the returned reference. Operators read requests in the protected operations inbox (§8(9)–(10), §13). This prototype contact serves local demonstrations. Before use with real customers, the operator must publish a monitored business contact and applicable complaint routes.</p>
+    <p><a href="https://www.indiacode.nic.in/bitstream/123456789/22037/2/a2023-22.pdf">Official Act · India Code</a></p>
     <a class="back" href="/">← Return to OneJourney</a>
   </main>
 </body>

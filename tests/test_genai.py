@@ -201,20 +201,14 @@ def test_local_genai_tools_use_catalogue_and_aggregate_only():
     assert matches['products'][0]['product_id'].startswith('P')
     assert matches['source'] == 'app/data/product_catalogue.csv'
 
-    report = main.analyze_leads('Professional offices')
-    assert report['lead_count'] > 0
-    assert 'activation_pct' in report
-    assert 'stage_counts' in report
-    assert 'drop_reason' not in report
-    assert 'business_name' not in report
-    assert 'synthetic' in report['source']
+    from app.genai import TOOLS
+    assert 'analyze_funnel' not in {tool['name'] for tool in TOOLS}
 
 
 def test_advisor_explains_when_local_ollama_is_unavailable(monkeypatch):
     monkeypatch.setattr(main, 'local_runtime_status', lambda: {'status': 'runtime_unavailable', 'model': 'qwen3:8b'})
     journey_id = main.newjourney(main.CreateJourney(language='en'))['id']
-    coroutine = main.advisor(journey_id, main.TextInput(text='I run a clinic'))
-    with pytest.raises(HTTPException) as caught:
-        coroutine.send(None)
-    assert caught.value.status_code == 503
-    assert 'Start the Ollama app' in caught.value.detail
+    import asyncio
+    result=asyncio.run(main.advisor(journey_id,main.TextInput(text='I run a clinic')))
+    assert result['mode']=='guided'
+    assert result['updates']['business_type'].lower()=='clinic'

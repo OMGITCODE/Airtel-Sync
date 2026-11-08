@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
   <title id="title">OneJourney local-first prototype architecture</title>
-  <desc id="desc">A browser calls a FastAPI journey service. Local Ollama handles chat only; deterministic rules handle recommendations, quotes and orders. Local OCR validates documents against synthetic registries. SQLite journey data expires after seven days. Aggregated synthetic lead data powers analytics and an experimental held-out propensity model for human partner handoff.</desc>
+  <desc id="desc">A browser calls a FastAPI journey service. Local Ollama handles chat only; deterministic rules handle recommendations, quotes and orders. Local OCR supplies evidence for registry checks and authenticated human review. SQLite journey data expires after seven days. Aggregated synthetic lead data powers analytics and an experimental held-out propensity model for human partner handoff.</desc>
   <defs>
     <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#e54349"/></marker>
     <marker id="arrow-muted" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#74817f"/></marker>
@@ -12,7 +12,7 @@
   <rect class="bg" width="1600" height="1000"/>
   <text class="over" x="80" y="68">ONEJOURNEY · AIRTEL SYNC 2026</text>
   <text class="title" x="80" y="119">Local-first acquisition, verification and assisted activation</text>
-  <text class="sub" x="80" y="151">Every decision path is bounded: the model helps with discovery; deterministic services decide eligibility, KYC state and order transitions.</text>
+  <text class="sub" x="80" y="151">Journey tokens protect customer data. Staff credentials gate evidence review and simulated operations.</text>
 
   <!-- Customer and service plane -->
   <rect class="box" x="80" y="218" width="300" height="145" rx="13"/>
@@ -24,8 +24,8 @@
   <rect class="box dark" x="490" y="205" width="375" height="175" rx="13"/>
   <text class="over" x="520" y="240">APPLICATION API · FASTAPI</text>
   <text class="white-label" x="520" y="277">Journey service</text>
-  <text class="white-body" x="520" y="307">Profile validation · tool routing · audit trail</text>
-  <text class="white-body" x="520" y="333">Consent gates · review flags · simulated fulfilment</text>
+  <text class="white-body" x="520" y="307">Signed token · quote/identity binding</text>
+  <text class="white-body" x="520" y="333">Consent · scoped KYC · audited review decisions</text>
   <text class="white-body" x="520" y="358">No production network or payment integrations</text>
 
   <rect class="box green" x="1005" y="200" width="270" height="180" rx="13"/>
@@ -40,7 +40,7 @@
   <text class="label" x="1331" y="273">Guided profile</text>
   <text class="body" x="1331" y="303">Fixed recommender</text>
   <text class="body" x="1331" y="328">Catalogue + eligibility</text>
-  <text class="body" x="1331" y="353">Instant local response</text>
+  <text class="body" x="1331" y="353">20-second chat fallback</text>
 
   <path class="route" d="M380 291H480"/>
   <path class="local" d="M865 275H995"/>

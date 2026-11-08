@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any
+from .languages import NEEDS as REGIONAL_NEEDS
 
 NEEDS: dict[str, dict[str, Any]] = {
     "internet": {
@@ -109,6 +110,9 @@ NEEDS: dict[str, dict[str, Any]] = {
 ALLOWED_NEEDS = list(NEEDS)
 NEED_SKUS = {key: list(value["skus"]) for key, value in NEEDS.items()}
 NEED_ALIASES = {key: list(value["aliases"]) for key, value in NEEDS.items()}
+for key, words in REGIONAL_NEEDS.items():
+    NEED_ALIASES[key] = [*NEED_ALIASES[key], *words]
+
 NEED_LABELS = {key: str(value["label"]) for key, value in NEEDS.items()}
 
 # These are question prompts only. They never add a product or need to a quote.
